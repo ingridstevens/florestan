@@ -28,6 +28,7 @@ struct MenuPanel: View {
             footer
         }
         .frame(width: 360)
+        .acceptsLinkDrops(cornerRadius: 8)
     }
 
     private var header: some View {

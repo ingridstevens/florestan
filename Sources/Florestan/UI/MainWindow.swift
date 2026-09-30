@@ -60,6 +60,7 @@ struct MainWindow: View {
             }
         }
         .frame(minWidth: 760, minHeight: 520)
+        .acceptsLinkDrops()
         .onAppear { NSApp.setActivationPolicy(.regular) }
         .onDisappear { NSApp.setActivationPolicy(.accessory) }
     }
