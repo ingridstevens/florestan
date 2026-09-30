@@ -1,0 +1,96 @@
+import AppKit
+import FlorestanCore
+import SwiftUI
+
+@main
+struct FlorestanApp: App {
+    @NSApplicationDelegateAdaptor private var delegate: AppDelegate
+
+    var body: some Scene {
+        MenuBarExtra {
+            MenuPanel()
+                .environment(delegate.model)
+                .environment(delegate.eusebius)
+        } label: {
+            MenuBarLabel(delegate: delegate)
+        }
+        .menuBarExtraStyle(.window)
+
+        Window("Florestan.exe", id: "main") {
+            MainWindow()
+                .environment(delegate.model)
+                .environment(delegate.eusebius)
+                .tint(delegate.model.settings.theme.accent)
+        }
+        .windowStyle(.hiddenTitleBar)
+        .windowBackgroundDragBehavior(.enabled)
+        .defaultSize(width: 900, height: 620)
+        .defaultLaunchBehavior(.suppressed)
+    }
+}
+
+/// The menu bar icon. Also hands the window-opening action to the app delegate, which has no SwiftUI environment.
+private struct MenuBarLabel: View {
+    var delegate: AppDelegate
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Image(systemName: delegate.model.isBusy ? "arrow.down.circle.dotted" : "music.note")
+            .accessibilityLabel("Florestan.exe")
+            .task { delegate.windowOpener = { openWindow(id: "main") } }
+    }
+}
+
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    let model = AppModel()
+    let eusebius = EusebiusModel()
+    private var hotKey: HotKey?
+    var windowOpener: (() -> Void)? {
+        didSet {
+            if SnapshotHarness.outputDirectory != nil {
+                SnapshotHarness.run(model: model) { [weak self] in self?.showWindow() }
+                return
+            }
+            // Show the window the very first time Florestan runs, so it doesn't seem to do nothing.
+            guard windowOpener != nil, !UserDefaults.standard.bool(forKey: "hasLaunchedBefore") else { return }
+            UserDefaults.standard.set(true, forKey: "hasLaunchedBefore")
+            showWindow()
+        }
+    }
+
+    func showWindow() {
+        windowOpener?()
+        NSApp.activate()
+    }
+
+    /// Opening the app again from Finder, Spotlight or the Dock shows the window.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag { showWindow() }
+        return true
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.accessory)
+        Notifier.requestPermission()
+        hotKey = HotKey { [weak self] in
+            Task { @MainActor in self?.downloadClipboard() }
+        }
+    }
+
+    /// ⌥⌘Y: download whatever link is on the clipboard.
+    private func downloadClipboard() {
+        let clip = NSPasteboard.general.string(forType: .string) ?? ""
+        switch model.submit(clip) {
+        case .queued:
+            let kind = Link.parse(clip)?.isPlaylist == true ? "playlist" : "song"
+            Notifier.post(title: "Downloading \(kind)", body: "Florestan will add it to Apple Music.")
+        case .notALink:
+            Notifier.post(title: "No YouTube link on the clipboard", body: "Copy a YouTube or YouTube Music link, then press ⌥⌘Y.")
+        case .alreadyQueued:
+            Notifier.post(title: "Already downloading", body: "That link is in the queue.")
+        case .toolsMissing:
+            Notifier.post(title: "Florestan needs yt-dlp and ffmpeg", body: "Run: brew install yt-dlp ffmpeg")
+        }
+    }
+}
