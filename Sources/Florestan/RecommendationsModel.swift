@@ -50,6 +50,9 @@ final class RecommendationsModel {
     /// How many suggestions were left out because the song is already in Apple Music.
     private(set) var ownedCount = 0
     private(set) var ownedIdeasCount = 0
+    /// Why adding a Recommendation didn't start, by video ID.
+    private(set) var addErrors: [String: String] = [:]
+    private var matcherCache: (matcher: LibraryMatcher, songCount: Int, builtAt: Date)?
 
     private var dismissed: Set<String>
     private var lastRefresh: Date?
@@ -90,7 +93,7 @@ final class RecommendationsModel {
     private func pruneOwned(using model: AppModel) {
         guard !items.isEmpty else { return }
         Task {
-            let owned = await Self.libraryMatcher(using: model)
+            let owned = await libraryMatcher(using: model)
             let before = items.count
             items.removeAll { !added.contains($0.videoID) && owned.contains(title: $0.title, artist: $0.artist) }
             if items.count != before {
@@ -108,7 +111,7 @@ final class RecommendationsModel {
         let downloader = Downloader(cookieBrowser: model.settings.useBrowserLogin ? model.settings.cookieBrowser : nil)
         let known = Set(model.librarySongs.map(\.videoID))
         Task {
-            let owned = await Self.libraryMatcher(using: model)
+            async let ownedLibrary = libraryMatcher(using: model)
             // Seed video → its Mix entries, fetched three at a time.
             var mixes: [(LedgerEntry, [YTDLP.FlatPlaylist.Entry])] = []
             await withTaskGroup(of: (LedgerEntry, [YTDLP.FlatPlaylist.Entry]).self) { group in
@@ -147,9 +150,14 @@ final class RecommendationsModel {
                 }
             }
             // Leave out songs already in Apple Music under a slightly different title or credit.
+            // Only count the ones that would otherwise have been in the running.
+            let owned = await ownedLibrary
             let candidates = scores.sorted { $0.value > $1.value }.compactMap { info[$0.key] }
-            let fresh = candidates.filter { !owned.contains(title: $0.title, artist: $0.artist) }
-            ownedCount = candidates.count - fresh.count
+            var fresh: [Recommendation] = []
+            var ownedSeen = 0
+            for candidate in candidates where fresh.count < Self.maxItems * 2 {
+                if owned.contains(title: candidate.title, artist: candidate.artist) { ownedSeen += 1 } else { fresh.append(candidate) }
+            }
             // Take turns between seed songs so one artist doesn't fill the whole list.
             let bySeed = Dictionary(grouping: fresh, by: \.because)
             var queues = seeds.compactMap { bySeed[$0.metadata.title] }
@@ -166,6 +174,7 @@ final class RecommendationsModel {
                     : .failed("No new suggestions right now. Download a few more songs and refresh.")
             } else {
                 items = ranked
+                ownedCount = ownedSeen
                 lastRefresh = .now
                 phase = .ready
             }
@@ -174,9 +183,21 @@ final class RecommendationsModel {
     }
 
     func add(_ item: Recommendation, using model: AppModel) {
-        let result = model.submit(item.url)
-        if result == .queued || result == .alreadyQueued {
+        addErrors[item.videoID] = nil
+        if let error = Self.startDownload(item.videoID, using: model) {
+            addErrors[item.videoID] = error
+        } else {
             added.insert(item.videoID)
+        }
+    }
+
+    /// Queues a song, or says why it couldn't be. A song already imported counts as added.
+    private static func startDownload(_ videoID: String, using model: AppModel) -> String? {
+        if model.isInLibrary(videoID) { return nil }
+        switch model.submit("https://www.youtube.com/watch?v=\(videoID)") {
+        case .queued, .alreadyQueued: return nil
+        case .toolsMissing: return "Install yt-dlp and ffmpeg first (see Downloads)."
+        case .notALink: return "Couldn't make a YouTube link for this song."
         }
     }
 
@@ -188,30 +209,80 @@ final class RecommendationsModel {
 
     var ideasUnavailableReason: String? { EusebiusModel.modelUnavailableReason(for: "Offline suggestions") }
 
+    /// When the current Idea request started, for the elapsed-time display.
+    private(set) var ideasStartedAt: Date?
+
     /// Asks the on-device model for songs like the ones already imported. Works without a network connection.
     func suggestIdeas(using model: AppModel) {
         guard ideaPhase != .loading, ideasUnavailableReason == nil else { return }
-        let seeds = model.librarySongs.prefix(40).map { "\($0.metadata.artist) – \($0.metadata.title)" }
+        var seeds = Self.seedLines(from: model.librarySongs)
         guard !seeds.isEmpty else { return }
         ideaPhase = .loading
+        ideasStartedAt = .now
         Task {
-            let owned = await Self.libraryMatcher(using: model)
-            let session = LanguageModelSession(instructions: """
-                You recommend music. Suggest real, existing songs that a listener with these songs would enjoy: \
-                similar in feel, era or style, including other artists. Never repeat the listener's songs. \
-                Reply with one song per line, formatted exactly as `Artist – Title`. No numbering, no other text.
-                """)
-            do {
-                let response = try await session.respond(to: "My songs:\n\(seeds.joined(separator: "\n"))\n\nSuggest 15 songs.")
-                let all = Self.parseIdeas(response.content)
+            async let ownedLibrary = libraryMatcher(using: model)
+            var reply: String?
+            var failure: String?
+            // The on-device model has a small context window (about 4,000 tokens for prompt and answer together).
+            // If the song list still doesn't fit, try again with half of it.
+            while reply == nil && failure == nil {
+                do {
+                    reply = try await Self.askForIdeas(seeds)
+                } catch LanguageModelSession.GenerationError.exceededContextWindowSize {
+                    if seeds.count <= 3 { failure = "Apple Intelligence ran out of room. Try again." } else { seeds = Array(seeds.prefix(seeds.count / 2)) }
+                } catch {
+                    failure = "Apple Intelligence couldn't make suggestions: \(error.localizedDescription)"
+                }
+            }
+            let owned = await ownedLibrary
+            if let reply {
+                let all = Self.parseIdeas(reply)
                 let parsed = all.filter { !owned.contains(title: $0.title, artist: $0.artist) }
                 ownedIdeasCount = all.count - parsed.count
                 ideas = parsed
-                ideaPhase = parsed.isEmpty ? .failed("Apple Intelligence didn't come up with any songs. Try again.") : .ready
-            } catch {
-                ideaPhase = .failed("Apple Intelligence couldn't make suggestions: \(error.localizedDescription)")
+                ideaPhase = parsed.isEmpty ? .failed("Apple Intelligence didn't come up with any new songs. Try again.") : .ready
+            } else {
+                ideaPhase = .failed(failure ?? "Apple Intelligence couldn't make suggestions.")
+            }
+            ideasStartedAt = nil
+        }
+    }
+
+    private static func askForIdeas(_ seeds: [String]) async throws -> String {
+        let session = LanguageModelSession(instructions: """
+            You recommend music. Suggest real, existing songs that a listener with these songs would enjoy: \
+            similar in feel, era or style. Each suggestion must be a different song, mostly by other artists, \
+            and none of the listener's songs. Reply with one song per line, formatted exactly as `Artist – Title`. \
+            No numbering, no other text.
+            """)
+        let response = try await session.respond(to: "My songs:\n\(seeds.joined(separator: "\n"))\n\nSuggest 12 songs.")
+        return response.content
+    }
+
+    /// A short, varied sample of the library: at most three songs per artist, lead artist only, titles without extras,
+    /// capped so the prompt stays well inside the on-device model's context window.
+    static func seedLines(from songs: [LedgerEntry], characterBudget: Int = 1800) -> [String] {
+        var byArtist: [String: [String]] = [:]
+        var artistOrder: [String] = []
+        for song in songs {
+            let lead = song.metadata.artist.components(separatedBy: ", ").first ?? song.metadata.artist
+            var title = song.metadata.title.replacingOccurrences(of: #"\s*[\(\[][^\)\]]*[\)\]]"#, with: "", options: .regularExpression)
+            if title.count > 50 { title = String(title.prefix(50)) }
+            if byArtist[lead] == nil { artistOrder.append(lead) }
+            if byArtist[lead, default: []].count < 3 { byArtist[lead, default: []].append("\(lead) – \(title)") }
+        }
+        var lines: [String] = []
+        var used = 0
+        for round in 0..<3 {
+            for artist in artistOrder {
+                guard let songs = byArtist[artist], songs.indices.contains(round) else { continue }
+                let line = songs[round]
+                if used + line.count > characterBudget { return lines }
+                lines.append(line)
+                used += line.count + 1
             }
         }
+        return lines
     }
 
     /// Reads lines like "Glass Animals – Heat Waves", tolerating numbering, bullets and quotes.
@@ -248,8 +319,11 @@ final class RecommendationsModel {
                     return
                 }
                 ideaVideoIDs[idea.id] = videoID
-                let result = model.submit("https://www.youtube.com/watch?v=\(videoID)")
-                if result == .queued || result == .alreadyQueued || model.isInLibrary(videoID) { ideasAdded.insert(idea.id) }
+                if let error = Self.startDownload(videoID, using: model) {
+                    ideaErrors[idea.id] = error
+                } else {
+                    ideasAdded.insert(idea.id)
+                }
             } catch let error as DownloadFailure {
                 ideaErrors[idea.id] = error.failure.message
             } catch {
@@ -262,13 +336,23 @@ final class RecommendationsModel {
         ideas.removeAll { $0.id == idea.id }
     }
 
-    /// Every song in Apple Music plus everything Florestan imported. Falls back to the Ledger if Music can't be read.
-    private static func libraryMatcher(using model: AppModel) async -> LibraryMatcher {
-        var matcher = LibraryMatcher(songs: model.librarySongs.map { ($0.metadata.title, $0.metadata.artist) })
-        if let songs = try? await MusicLibrary.allSongs() {
-            for song in songs { matcher.add(title: song.name, artist: song.artist) }
+    /// Every song in Apple Music plus everything Florestan imported. Built off the main thread, and reused for
+    /// ten minutes or until Florestan imports something, because reading a big library takes a while and holds up imports.
+    private func libraryMatcher(using model: AppModel) async -> LibraryMatcher {
+        if let cache = matcherCache, cache.songCount == model.librarySongs.count,
+           Date.now.timeIntervalSince(cache.builtAt) < 10 * 60 {
+            return cache.matcher
         }
-        return matcher
+        let imported = model.librarySongs.map { ($0.metadata.title, $0.metadata.artist) }
+        let built = await Task.detached(priority: .utility) { () -> LibraryMatcher in
+            var matcher = LibraryMatcher(songs: imported)
+            if let songs = try? await MusicLibrary.allSongs() {
+                for song in songs { matcher.add(title: song.name, artist: song.artist) }
+            }
+            return matcher
+        }.value
+        matcherCache = (built, model.librarySongs.count, .now)
+        return built
     }
 
     private func save() {

@@ -8,12 +8,20 @@ public struct LibraryMatcher: Sendable {
     /// Artist name → normalized titles by that artist, for looser word-by-word matching.
     private var byArtist: [String: [String]] = [:]
 
-    /// A title this long is distinctive enough to match even when the artist names don't line up
-    /// (YouTube often credits a channel, not the artist).
-    static let distinctiveTitleLength = 14
+    /// Words that mark another version of the same song rather than a different song.
+    static let versionWords: Set<Substring> = [
+        "slowed", "reverb", "sped", "up", "remix", "remastered", "remaster", "acoustic", "live", "version",
+        "edit", "radio", "extended", "instrumental", "demo", "mono", "stereo", "mix", "original", "explicit", "clean",
+    ]
 
     public init(songs: [(title: String, artist: String)]) {
         for song in songs { add(title: song.title, artist: song.artist) }
+    }
+
+    public init() {}
+
+    public init(_ songs: [(title: String, artist: String)]) {
+        self.init(songs: songs)
     }
 
     public var isEmpty: Bool { byTitle.isEmpty }
@@ -31,20 +39,19 @@ public struct LibraryMatcher: Sendable {
         guard !key.isEmpty else { return false }
         let names = Self.artistNames(artist)
 
-        if let candidates = byTitle[key] {
-            if candidates.contains(where: { Self.overlap($0, names) }) { return true }
-            if key.count >= Self.distinctiveTitleLength { return true }
-        }
-        // Same artist, and every word of the shorter title appears in the longer one ("heat waves" ~ "heat waves slowed").
-        let words = Set(key.split(separator: " "))
+        if let candidates = byTitle[key], candidates.contains(where: { Self.overlap($0, names) }) { return true }
+        // Same artist, and one title is the other plus version words ("heat waves" ~ "heat waves slowed").
         for name in names {
-            for other in byArtist[name] ?? [] {
-                let otherWords = Set(other.split(separator: " "))
-                let (short, long) = words.count <= otherWords.count ? (words, otherWords) : (otherWords, words)
-                if short.count >= 2 && short.isSubset(of: long) { return true }
-            }
+            for other in byArtist[name] ?? [] where Self.isVersion(of: key, other) { return true }
         }
         return false
+    }
+
+    static func isVersion(of a: String, _ b: String) -> Bool {
+        let (short, long) = a.count <= b.count ? (a, b) : (b, a)
+        guard long.hasPrefix(short + " ") else { return false }
+        let extra = long.dropFirst(short.count + 1).split(separator: " ")
+        return !extra.isEmpty && extra.allSatisfy { versionWords.contains($0) || $0.allSatisfy(\.isNumber) }
     }
 
     // MARK: - Normalizing
@@ -56,7 +63,7 @@ public struct LibraryMatcher: Sendable {
     static func normalizeTitle(_ title: String) -> String {
         var s = fold(title)
         s = s.replacingOccurrences(of: #"[\(\[【][^\)\]】]*[\)\]】]"#, with: " ", options: .regularExpression)
-        s = s.replacingOccurrences(of: #"\s+(feat\.?|ft\.?|featuring|with)\s+.*$"#, with: "", options: .regularExpression)
+        s = s.replacingOccurrences(of: #"\s+(feat\.?|ft\.?|featuring)\s+.*$"#, with: "", options: .regularExpression)
         s = s.replacingOccurrences(
             of: #"\s+[-–—|]\s+.*\b(remaster(ed)?|version|edit|live|mix|mono|stereo|official|video|audio|lyrics?)\b.*$"#,
             with: "", options: .regularExpression)

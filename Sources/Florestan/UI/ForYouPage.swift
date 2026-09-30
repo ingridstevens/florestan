@@ -89,7 +89,7 @@ struct ForYouPage: View {
         if let reason = recommendations.ideasUnavailableReason {
             Message(reason)
         } else if recommendations.ideaPhase == .loading {
-            Loading("Apple Intelligence is thinking about your music…")
+            ThinkingTimer(startedAt: recommendations.ideasStartedAt ?? .now)
         } else if case .failed(let why) = recommendations.ideaPhase, recommendations.ideas.isEmpty {
             Message(why)
         } else {
@@ -123,6 +123,7 @@ private struct AddedState: View {
     @Environment(AppModel.self) private var model
     var videoID: String?
     var tint: Color
+    var retry: () -> Void
 
     var body: some View {
         if let videoID, model.isInLibrary(videoID) {
@@ -134,16 +135,43 @@ private struct AddedState: View {
             .buttonStyle(.bordered)
             .tint(tint)
             .help("Open Music with this song selected")
-        } else if let videoID, !model.isDownloading(videoID) {
+        } else if let videoID, model.downloadFailed(videoID) {
             Label("Didn't download", systemImage: "exclamationmark.circle")
                 .font(.callout).foregroundStyle(.orange)
                 .help("See Downloads for details")
+            Button("Try again", action: retry)
+                .buttonStyle(.bordered)
         } else {
             HStack(spacing: 6) {
                 ProgressView().controlSize(.small)
                 Text("Adding…").font(.callout).foregroundStyle(.secondary)
             }
         }
+    }
+}
+
+/// Elapsed time plus what to expect, so a long wait doesn't look like a hang.
+private struct ThinkingTimer: View {
+    var startedAt: Date
+
+    var body: some View {
+        TimelineView(.periodic(from: startedAt, by: 1)) { context in
+            let seconds = max(0, Int(context.date.timeIntervalSince(startedAt)))
+            HStack(spacing: 10) {
+                ProgressView().controlSize(.small)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Apple Intelligence is thinking about your music… \(seconds) s")
+                        .monospacedDigit()
+                    Text(seconds < 30 ? "Usually takes 5–20 seconds, a bit longer the first time."
+                                      : "Taking longer than usual. The model may still be loading after a restart.")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+                .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 24)
+        Spacer()
     }
 }
 
@@ -183,7 +211,11 @@ private struct RecommendationRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.title).lineLimit(1)
                 Text(item.artist).font(.callout).foregroundStyle(.secondary).lineLimit(1)
-                Text("Because you added \(item.because)").font(.caption).foregroundStyle(.tertiary).lineLimit(1)
+                if let error = recommendations.addErrors[item.videoID] {
+                    Text(error).font(.caption).foregroundStyle(.orange).lineLimit(1)
+                } else {
+                    Text("Because you added \(item.because)").font(.caption).foregroundStyle(.tertiary).lineLimit(1)
+                }
             }
             Spacer(minLength: 12)
             Button {
@@ -196,7 +228,7 @@ private struct RecommendationRow: View {
             .help("Listen on YouTube")
             .accessibilityLabel("Listen to \(item.title) on YouTube")
             if isAdded {
-                AddedState(videoID: item.videoID, tint: tint)
+                AddedState(videoID: item.videoID, tint: tint) { recommendations.add(item, using: model) }
             } else {
                 Button {
                     recommendations.dismiss(item)
@@ -243,7 +275,7 @@ private struct IdeaRow: View {
             }
             .help("Open a YouTube search for this song")
             if recommendations.ideasAdded.contains(idea.id) {
-                AddedState(videoID: recommendations.ideaVideoIDs[idea.id], tint: tint)
+                AddedState(videoID: recommendations.ideaVideoIDs[idea.id], tint: tint) { recommendations.add(idea, using: model) }
             } else if recommendations.resolving.contains(idea.id) {
                 ProgressView().controlSize(.small)
             } else {

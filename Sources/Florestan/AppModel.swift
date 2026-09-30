@@ -14,8 +14,8 @@ final class AppModel {
 
     private(set) var jobs: [Job] = []
     private(set) var librarySongs: [LedgerEntry] = []
-    /// Album (lowercased) → the album artist its songs share.
-    private var albumArtists: [String: String] = [:]
+    /// Which album artist each album's songs share.
+    private var albumBook = AlbumBook()
     private(set) var toolsInstalled = Downloader.toolsInstalled
     private(set) var ytdlpVersion: String?
     /// Set when YouTube asked for a bot check, so the UI can offer the browser-login setting.
@@ -99,6 +99,15 @@ final class AppModel {
         jobs.contains { !$0.isFinished && ($0.link == .song(videoID: videoID) || $0.tracks.contains { $0.videoID == videoID }) }
     }
 
+    /// True when the latest attempt at this video failed and nothing is retrying it.
+    func downloadFailed(_ videoID: String) -> Bool {
+        guard !isDownloading(videoID), !isInLibrary(videoID),
+              let track = jobs.last(where: { $0.isFinished && $0.tracks.contains { $0.videoID == videoID } })?
+                .tracks.first(where: { $0.videoID == videoID }) else { return false }
+        if case .failed = track.state { return true }
+        return false
+    }
+
     func showInAppleMusic(_ videoID: String) {
         guard let entry = librarySongs.first(where: { $0.videoID == videoID }) else { return }
         Task {
@@ -106,7 +115,10 @@ final class AppModel {
                 try await MusicLibrary.reveal(trackID: entry.musicTrackID)
             } catch MusicError.notAuthorized {
                 musicNotAuthorized = true
-            } catch {}
+            } catch {
+                Notifier.post(title: "Couldn't find “\(entry.metadata.title)” in Apple Music",
+                              body: "It may have been removed. Use Forget in Imported songs to download it again.")
+            }
         }
     }
 
@@ -123,7 +135,7 @@ final class AppModel {
     func refreshLibrary() async {
         librarySongs = await ledger.snapshot.songs.values.sorted { $0.importedAt > $1.importedAt }
         for entry in librarySongs {
-            if let artist = entry.metadata.albumArtist { albumArtists[entry.metadata.album.lowercased()] = artist }
+            if entry.metadata.albumArtist != nil { albumBook.record(entry.metadata) }
         }
     }
 
@@ -249,11 +261,7 @@ final class AppModel {
                     }
                 }
                 // Songs of one album share an album artist, so Apple Music shows them as one album.
-                var metadata = TrackMetadata(from: downloaded.info).grouped(albumArtists: albumArtists)
-                if albumArtists[metadata.album.lowercased()] == nil, let artist = metadata.albumArtist {
-                    albumArtists[metadata.album.lowercased()] = artist
-                }
-                metadata.trackNumber = nil
+                let metadata = albumBook.group(TrackMetadata(from: downloaded.info))
                 updateTrack(jobID, videoID) { t in
                     t.state = .importing; t.title = metadata.title; t.artist = metadata.artist
                 }
@@ -316,7 +324,8 @@ final class AppModel {
         for track in job.tracks {
             if let entry = await ledger.entry(for: track.videoID) { entries.append(entry) }
         }
-        let byAlbum = Dictionary(grouping: entries, by: { $0.metadata.album.lowercased() })
+        // An album is its name plus its album artist: two "Greatest Hits" in one playlist are numbered separately.
+        let byAlbum = Dictionary(grouping: entries, by: { "\($0.metadata.album.lowercased())|\($0.metadata.albumArtist ?? "")" })
         for (_, albumEntries) in byAlbum where albumEntries.count > 1 {
             for (index, var entry) in albumEntries.enumerated() where entry.metadata.trackNumber != index + 1 {
                 entry.metadata.trackNumber = index + 1
@@ -345,8 +354,8 @@ final class AppModel {
         for entry in await ledger.snapshot.songs.values where entry.metadata.albumArtist == nil {
             var updated = entry
             let lead = entry.metadata.artist.components(separatedBy: ", ").first ?? entry.metadata.artist
-            updated.metadata.albumArtist = albumArtists[entry.metadata.album.lowercased()] ?? lead
-            albumArtists[entry.metadata.album.lowercased()] = updated.metadata.albumArtist
+            updated.metadata.albumArtist = lead
+            updated.metadata = albumBook.group(updated.metadata)
             guard (try? await MusicLibrary.setAlbumInfo(trackID: entry.musicTrackID, albumArtist: updated.metadata.albumArtist,
                                                         trackNumber: nil, trackCount: nil)) != nil else { continue }
             try? await ledger.record(updated)

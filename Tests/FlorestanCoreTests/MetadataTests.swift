@@ -38,12 +38,21 @@ import Testing
     }
 
     @Test func songsOfOneAlbumShareAlbumArtist() {
+        var book = AlbumBook()
+        book.record(TrackMetadata(title: "Ich grolle nicht", artist: "Barbara Bonney, Antonio Pappano",
+                                  album: "Brahms/Schumann Lieder", albumArtist: "Barbara Bonney"))
         let second = TrackMetadata(from: VideoInfo(id: "b", title: "t", track: "Verzicht", artists: ["Anne Sofie von Otter", "Barbara Bonney"],
                                                     album: "Brahms/Schumann Lieder"))
         #expect(second.albumArtist == "Anne Sofie von Otter")
-        let grouped = second.grouped(albumArtists: ["brahms/schumann lieder": "Barbara Bonney"], albumOrder: ["a", "b"], videoID: "b")
-        #expect(grouped.albumArtist == "Barbara Bonney")
-        #expect(grouped.trackNumber == 2)
+        #expect(book.group(second).albumArtist == "Barbara Bonney")
+    }
+
+    @Test func differentAlbumsWithTheSameNameStayApart() {
+        var book = AlbumBook()
+        book.record(TrackMetadata(title: "Somebody to Love", artist: "Queen", album: "Greatest Hits", albumArtist: "Queen"))
+        let abba = TrackMetadata(title: "Waterloo", artist: "ABBA", album: "Greatest Hits", albumArtist: "ABBA")
+        #expect(book.group(abba).albumArtist == "ABBA")
+        #expect(book.group(TrackMetadata(title: "SOS", artist: "ABBA", album: "Greatest Hits", albumArtist: "ABBA")).albumArtist == "ABBA")
     }
 
     @Test func retryableFailures() {

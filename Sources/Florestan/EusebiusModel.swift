@@ -230,9 +230,11 @@ final class EusebiusModel {
     /// Classifies a batch. If the model refuses or overflows, splits the batch and tries the halves; single songs that still fail are skipped.
     private func classify(_ batch: [MusicLibrary.LibraryTrack]) async -> [(String, [Mood])] {
         guard !batch.isEmpty else { return [] }
+        // Lead artist and a trimmed title keep long classical credits inside the model's small context window.
         let list = batch.enumerated().map { i, t in
             let genre = t.genre.isEmpty ? "" : " [\(t.genre)]"
-            return "\(i + 1). \(t.artist) – \(t.name)\(genre)"
+            let lead = t.artist.components(separatedBy: ", ").first ?? t.artist
+            return "\(i + 1). \(lead) – \(t.name.prefix(60))\(genre)"
         }.joined(separator: "\n")
         let palette = Mood.allCases.map { "\($0.rawValue) (\($0.blurb.dropLast().lowercased()))" }.joined(separator: ", ")
         // Plain-text replies: guided generation (@Generable) needs a macro plugin that ships only with Xcode.

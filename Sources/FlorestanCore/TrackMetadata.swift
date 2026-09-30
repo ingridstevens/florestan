@@ -50,15 +50,6 @@ public struct TrackMetadata: Equatable, Sendable, Codable {
         }
     }
 
-    /// Groups songs of the same album: every song on an album gets the album artist already chosen for it,
-    /// and songs in `albumOrder` (a playlist's album tracks, in order) get track numbers.
-    public func grouped(albumArtists: [String: String], albumOrder: [String] = [], videoID: String? = nil) -> TrackMetadata {
-        var copy = self
-        if let known = albumArtists[album.lowercased()] { copy.albumArtist = known }
-        if let videoID, let index = albumOrder.firstIndex(of: videoID) { copy.trackNumber = index + 1 }
-        return copy
-    }
-
     // MARK: - Rules
 
     private static let clutterWords =
