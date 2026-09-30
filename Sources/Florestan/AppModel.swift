@@ -94,6 +94,22 @@ final class AppModel {
         librarySongs.contains { $0.videoID == videoID }
     }
 
+    /// True while a Job for this video is waiting or running.
+    func isDownloading(_ videoID: String) -> Bool {
+        jobs.contains { !$0.isFinished && ($0.link == .song(videoID: videoID) || $0.tracks.contains { $0.videoID == videoID }) }
+    }
+
+    func showInAppleMusic(_ videoID: String) {
+        guard let entry = librarySongs.first(where: { $0.videoID == videoID }) else { return }
+        Task {
+            do {
+                try await MusicLibrary.reveal(trackID: entry.musicTrackID)
+            } catch MusicError.notAuthorized {
+                musicNotAuthorized = true
+            } catch {}
+        }
+    }
+
     func clearHistory() {
         jobs.removeAll(where: \.isFinished)
         saveHistory()

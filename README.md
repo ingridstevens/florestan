@@ -10,7 +10,7 @@ Needs only the Xcode Command Line Tools and Homebrew:
 ```sh
 brew install yt-dlp ffmpeg
 ./scripts/build-app.sh        # builds and installs ~/Applications/Florestan.exe.app
-swift test                    # core logic tests
+swift test --scratch-path .build-test   # core logic tests (separate folder avoids a stale-cache bug)
 ```
 
 ## Use

@@ -45,6 +45,11 @@ final class RecommendationsModel {
     private(set) var resolving: Set<String> = []
     private(set) var ideasAdded: Set<String> = []
     private(set) var ideaErrors: [String: String] = [:]
+    /// The YouTube video each added Idea turned out to be.
+    private(set) var ideaVideoIDs: [String: String] = [:]
+    /// How many suggestions were left out because the song is already in Apple Music.
+    private(set) var ownedCount = 0
+    private(set) var ownedIdeasCount = 0
 
     private var dismissed: Set<String>
     private var lastRefresh: Date?
@@ -74,7 +79,25 @@ final class RecommendationsModel {
     }
 
     func refreshIfStale(using model: AppModel) {
-        if (isStale || items.isEmpty) && phase != .loading && !model.librarySongs.isEmpty { refresh(using: model) }
+        if (isStale || items.isEmpty) && phase != .loading && !model.librarySongs.isEmpty {
+            refresh(using: model)
+        } else {
+            pruneOwned(using: model)
+        }
+    }
+
+    /// Drops saved suggestions that have since turned up in Apple Music (except ones just added here, which show their status).
+    private func pruneOwned(using model: AppModel) {
+        guard !items.isEmpty else { return }
+        Task {
+            let owned = await Self.libraryMatcher(using: model)
+            let before = items.count
+            items.removeAll { !added.contains($0.videoID) && owned.contains(title: $0.title, artist: $0.artist) }
+            if items.count != before {
+                ownedCount += before - items.count
+                save()
+            }
+        }
     }
 
     func refresh(using model: AppModel) {
@@ -85,6 +108,7 @@ final class RecommendationsModel {
         let downloader = Downloader(cookieBrowser: model.settings.useBrowserLogin ? model.settings.cookieBrowser : nil)
         let known = Set(model.librarySongs.map(\.videoID))
         Task {
+            let owned = await Self.libraryMatcher(using: model)
             // Seed video → its Mix entries, fetched three at a time.
             var mixes: [(LedgerEntry, [YTDLP.FlatPlaylist.Entry])] = []
             await withTaskGroup(of: (LedgerEntry, [YTDLP.FlatPlaylist.Entry]).self) { group in
@@ -122,8 +146,12 @@ final class RecommendationsModel {
                     }
                 }
             }
+            // Leave out songs already in Apple Music under a slightly different title or credit.
+            let candidates = scores.sorted { $0.value > $1.value }.compactMap { info[$0.key] }
+            let fresh = candidates.filter { !owned.contains(title: $0.title, artist: $0.artist) }
+            ownedCount = candidates.count - fresh.count
             // Take turns between seed songs so one artist doesn't fill the whole list.
-            let bySeed = Dictionary(grouping: scores.sorted { $0.value > $1.value }.compactMap { info[$0.key] }, by: \.because)
+            let bySeed = Dictionary(grouping: fresh, by: \.because)
             var queues = seeds.compactMap { bySeed[$0.metadata.title] }
             var ranked: [Recommendation] = []
             while ranked.count < Self.maxItems, queues.contains(where: { !$0.isEmpty }) {
@@ -165,9 +193,9 @@ final class RecommendationsModel {
         guard ideaPhase != .loading, ideasUnavailableReason == nil else { return }
         let seeds = model.librarySongs.prefix(40).map { "\($0.metadata.artist) – \($0.metadata.title)" }
         guard !seeds.isEmpty else { return }
-        let owned = Set(model.librarySongs.map { $0.metadata.title.lowercased() })
         ideaPhase = .loading
         Task {
+            let owned = await Self.libraryMatcher(using: model)
             let session = LanguageModelSession(instructions: """
                 You recommend music. Suggest real, existing songs that a listener with these songs would enjoy: \
                 similar in feel, era or style, including other artists. Never repeat the listener's songs. \
@@ -175,7 +203,9 @@ final class RecommendationsModel {
                 """)
             do {
                 let response = try await session.respond(to: "My songs:\n\(seeds.joined(separator: "\n"))\n\nSuggest 15 songs.")
-                let parsed = Self.parseIdeas(response.content).filter { !owned.contains($0.title.lowercased()) }
+                let all = Self.parseIdeas(response.content)
+                let parsed = all.filter { !owned.contains(title: $0.title, artist: $0.artist) }
+                ownedIdeasCount = all.count - parsed.count
                 ideas = parsed
                 ideaPhase = parsed.isEmpty ? .failed("Apple Intelligence didn't come up with any songs. Try again.") : .ready
             } catch {
@@ -217,8 +247,9 @@ final class RecommendationsModel {
                     ideaErrors[idea.id] = "Not found on YouTube"
                     return
                 }
+                ideaVideoIDs[idea.id] = videoID
                 let result = model.submit("https://www.youtube.com/watch?v=\(videoID)")
-                if result == .queued || result == .alreadyQueued { ideasAdded.insert(idea.id) }
+                if result == .queued || result == .alreadyQueued || model.isInLibrary(videoID) { ideasAdded.insert(idea.id) }
             } catch let error as DownloadFailure {
                 ideaErrors[idea.id] = error.failure.message
             } catch {
@@ -229,6 +260,15 @@ final class RecommendationsModel {
 
     func dismiss(_ idea: IdeaRecommendation) {
         ideas.removeAll { $0.id == idea.id }
+    }
+
+    /// Every song in Apple Music plus everything Florestan imported. Falls back to the Ledger if Music can't be read.
+    private static func libraryMatcher(using model: AppModel) async -> LibraryMatcher {
+        var matcher = LibraryMatcher(songs: model.librarySongs.map { ($0.metadata.title, $0.metadata.artist) })
+        if let songs = try? await MusicLibrary.allSongs() {
+            for song in songs { matcher.add(title: song.name, artist: song.artist) }
+        }
+        return matcher
     }
 
     private func save() {

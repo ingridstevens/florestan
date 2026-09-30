@@ -53,6 +53,8 @@ private struct LedgerRow: View {
             }
             Spacer()
             if hovering {
+                Button("Show in Apple Music") { model.showInAppleMusic(entry.videoID) }
+                    .controlSize(.small)
                 Button("Forget") { Task { await model.forget(entry) } }
                     .controlSize(.small)
             } else {
@@ -63,6 +65,7 @@ private struct LedgerRow: View {
         .padding(.vertical, 2)
         .onHover { hovering = $0 }
         .contextMenu {
+            Button("Show in Apple Music") { model.showInAppleMusic(entry.videoID) }
             Button("Open on YouTube") {
                 NSWorkspace.shared.open(URL(string: "https://www.youtube.com/watch?v=\(entry.videoID)")!)
             }

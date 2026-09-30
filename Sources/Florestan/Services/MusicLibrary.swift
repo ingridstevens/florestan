@@ -63,6 +63,19 @@ enum MusicLibrary {
         _ = try await run(script, [trackID, albumArtist ?? "", trackNumber.map(String.init) ?? "", trackCount.map(String.init) ?? ""])
     }
 
+    /// Opens Music with the track selected.
+    static func reveal(trackID: String) async throws {
+        let script = """
+        on run argv
+            tell application "Music"
+                reveal (first track of library playlist 1 whose persistent ID is (item 1 of argv))
+                activate
+            end tell
+        end run
+        """
+        _ = try await run(script, [trackID])
+    }
+
     /// Finds the playlist by persistent ID (or creates one named `name`) and makes it hold `trackIDs` in exactly that order.
     /// Returns the playlist's persistent ID.
     static func mirror(playlistNamed name: String, existingID: String?, trackIDs: [String]) async throws -> String {

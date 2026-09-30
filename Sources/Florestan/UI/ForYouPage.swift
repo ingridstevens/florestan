@@ -74,8 +74,11 @@ struct ForYouPage: View {
         } else if case .failed(let why) = recommendations.phase, recommendations.items.isEmpty {
             Message(why + " Offline? Try “From Apple Intelligence”.")
         } else {
-            List(recommendations.items) { item in
-                RecommendationRow(item: item, tint: tint)
+            List {
+                ForEach(recommendations.items) { item in
+                    RecommendationRow(item: item, tint: tint)
+                }
+                OwnedNote(count: recommendations.ownedCount)
             }
             .listStyle(.inset)
             .scrollContentBackground(.hidden)
@@ -90,11 +93,56 @@ struct ForYouPage: View {
         } else if case .failed(let why) = recommendations.ideaPhase, recommendations.ideas.isEmpty {
             Message(why)
         } else {
-            List(recommendations.ideas) { idea in
-                IdeaRow(idea: idea, tint: tint)
+            List {
+                ForEach(recommendations.ideas) { idea in
+                    IdeaRow(idea: idea, tint: tint)
+                }
+                OwnedNote(count: recommendations.ownedIdeasCount)
             }
             .listStyle(.inset)
             .scrollContentBackground(.hidden)
+        }
+    }
+}
+
+private struct OwnedNote: View {
+    var count: Int
+    var body: some View {
+        if count > 0 {
+            Text(count == 1 ? "Left out 1 song you already have in Apple Music."
+                            : "Left out \(count) songs you already have in Apple Music.")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .padding(.vertical, 6)
+        }
+    }
+}
+
+/// What an added song's row shows: downloading, then a way to jump to it in Apple Music.
+private struct AddedState: View {
+    @Environment(AppModel.self) private var model
+    var videoID: String?
+    var tint: Color
+
+    var body: some View {
+        if let videoID, model.isInLibrary(videoID) {
+            Button {
+                model.showInAppleMusic(videoID)
+            } label: {
+                Label("Show in Apple Music", systemImage: "music.note")
+            }
+            .buttonStyle(.bordered)
+            .tint(tint)
+            .help("Open Music with this song selected")
+        } else if let videoID, !model.isDownloading(videoID) {
+            Label("Didn't download", systemImage: "exclamationmark.circle")
+                .font(.callout).foregroundStyle(.orange)
+                .help("See Downloads for details")
+        } else {
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text("Adding…").font(.callout).foregroundStyle(.secondary)
+            }
         }
     }
 }
@@ -148,7 +196,7 @@ private struct RecommendationRow: View {
             .help("Listen on YouTube")
             .accessibilityLabel("Listen to \(item.title) on YouTube")
             if isAdded {
-                Label("Added", systemImage: "checkmark").font(.callout).foregroundStyle(tint)
+                AddedState(videoID: item.videoID, tint: tint)
             } else {
                 Button {
                     recommendations.dismiss(item)
@@ -195,7 +243,7 @@ private struct IdeaRow: View {
             }
             .help("Open a YouTube search for this song")
             if recommendations.ideasAdded.contains(idea.id) {
-                Label("Added", systemImage: "checkmark").font(.callout).foregroundStyle(tint)
+                AddedState(videoID: recommendations.ideaVideoIDs[idea.id], tint: tint)
             } else if recommendations.resolving.contains(idea.id) {
                 ProgressView().controlSize(.small)
             } else {
