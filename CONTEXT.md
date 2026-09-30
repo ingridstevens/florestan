@@ -11,11 +11,11 @@ A YouTube or YouTube Music URL the user hands to Florestan, by pasting, via the 
 _Avoid_: URL, request
 
 **Song Link**:
-A Link that points at a single video. A video URL that also carries a playlist reference is still a Song Link.
+A Link that points at a single video and names no real playlist. A video inside an endless "Mix" radio is still a Song Link.
 _Avoid_: video link, single
 
 **Playlist Link**:
-A Link that points only at a playlist, with no specific video selected.
+A Link that names a playlist or YouTube Music album, even when it also points at one video in it.
 _Avoid_: list, album link
 
 ### Work

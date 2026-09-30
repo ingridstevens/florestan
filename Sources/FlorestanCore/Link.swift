@@ -2,9 +2,9 @@ import Foundation
 
 /// A YouTube or YouTube Music URL handed to Florestan. See CONTEXT.md.
 public enum Link: Equatable, Hashable, Sendable, Codable {
-    /// A single video. Carries only the video ID, even if the URL also named a playlist.
+    /// A single video.
     case song(videoID: String)
-    /// A playlist (or YouTube Music album) with no specific video selected.
+    /// A playlist or YouTube Music album, including a video link that also names a playlist.
     case playlist(id: String, url: URL)
 
     /// The canonical URL Florestan hands to yt-dlp.
@@ -41,14 +41,15 @@ public enum Link: Equatable, Hashable, Sendable, Codable {
         let youtubeHosts: Set = ["youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com"]
         guard youtubeHosts.contains(host) else { return nil }
 
+        // Any link naming a real playlist means the whole playlist, even if it also points at one video in it.
+        if let list = query["list"], isPlaylistID(list) {
+            return .playlist(id: list, url: URL(string: "https://www.youtube.com/playlist?list=\(list)")!)
+        }
         if let v = query["v"], isVideoID(v) {
             return .song(videoID: v)
         }
         if pathParts.count >= 2, ["shorts", "live", "embed"].contains(pathParts[0]), isVideoID(pathParts[1]) {
             return .song(videoID: pathParts[1])
-        }
-        if let list = query["list"], isPlaylistID(list) {
-            return .playlist(id: list, url: URL(string: "https://www.youtube.com/playlist?list=\(list)")!)
         }
         // YouTube Music album pages: music.youtube.com/browse/MPREb_…
         if host == "music.youtube.com", pathParts.count == 2, pathParts[0] == "browse", pathParts[1].hasPrefix("MPRE") {

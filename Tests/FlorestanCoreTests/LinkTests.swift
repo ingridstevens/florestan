@@ -16,8 +16,14 @@ import Testing
         #expect(Link.parse(text) == .song(videoID: "dQw4w9WgXcQ"))
     }
 
-    @Test func videoInsidePlaylistIsASong() {
-        #expect(Link.parse("https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLx0sYbCqOb8TBPRdmBHs5Iftvv9TPboYG&index=3")
+    @Test func videoInsidePlaylistIsThePlaylist() {
+        #expect(Link.parse("https://www.youtube.com/watch?v=ieE439MIx1M&list=PLGg9gAHILeyK6LL7Ym9pd9wY_h3HvuVtv")
+                == .playlist(id: "PLGg9gAHILeyK6LL7Ym9pd9wY_h3HvuVtv",
+                             url: URL(string: "https://www.youtube.com/playlist?list=PLGg9gAHILeyK6LL7Ym9pd9wY_h3HvuVtv")!))
+    }
+
+    @Test func videoInsideMixIsASong() {
+        #expect(Link.parse("https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=RDdQw4w9WgXcQ&start_radio=1")
                 == .song(videoID: "dQw4w9WgXcQ"))
     }
 
