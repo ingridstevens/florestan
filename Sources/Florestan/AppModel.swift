@@ -55,7 +55,7 @@ final class AppModel {
             }
             jobs = saved
         }
-        Task { await refreshLibrary(); await refreshTools(); await groupOlderSongs() }
+        Task { await refreshLibrary(); await refreshTools(); await groupOlderSongs(); await reorderEarlierPlaylists() }
     }
 
     // MARK: - Derived
@@ -293,21 +293,35 @@ final class AppModel {
     }
 
     /// Numbers the songs of each album in this playlist in playlist order, so the album plays in sequence.
+    /// Counts every song of the playlist that's in the Ledger, including ones imported on an earlier run.
     private func numberAlbumTracks(jobID: UUID) async {
         guard let job = jobs.first(where: { $0.id == jobID }) else { return }
         var entries: [LedgerEntry] = []
-        for track in job.tracks where track.state == .imported {
+        for track in job.tracks {
             if let entry = await ledger.entry(for: track.videoID) { entries.append(entry) }
         }
         let byAlbum = Dictionary(grouping: entries, by: { $0.metadata.album.lowercased() })
         for (_, albumEntries) in byAlbum where albumEntries.count > 1 {
-            for (index, var entry) in albumEntries.enumerated() {
+            for (index, var entry) in albumEntries.enumerated() where entry.metadata.trackNumber != index + 1 {
                 entry.metadata.trackNumber = index + 1
                 try? await MusicLibrary.setAlbumInfo(trackID: entry.musicTrackID, albumArtist: entry.metadata.albumArtist,
                                                      trackNumber: index + 1, trackCount: albumEntries.count)
                 try? await ledger.record(entry)
             }
         }
+    }
+
+    /// One-time repair: albums and Mirrored Playlists imported before ordering existed get YouTube's order,
+    /// using the most recent Job of each playlist.
+    private func reorderEarlierPlaylists() async {
+        let key = "reorderedPlaylistsV1"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+        for playlistID in await ledger.snapshot.mirroredPlaylists.keys {
+            guard let job = jobs.last(where: { if case .playlist(playlistID, _) = $0.link { $0.isFinished } else { false } }) else { continue }
+            await numberAlbumTracks(jobID: job.id)
+            await mirrorPlaylist(jobID: job.id, youtubePlaylistID: playlistID, showProgress: false)
+        }
+        UserDefaults.standard.set(true, forKey: key)
     }
 
     /// Songs imported before album grouping existed get an album artist now.
@@ -324,14 +338,14 @@ final class AppModel {
         await refreshLibrary()
     }
 
-    private func mirrorPlaylist(jobID: UUID, youtubePlaylistID: String) async {
+    private func mirrorPlaylist(jobID: UUID, youtubePlaylistID: String, showProgress: Bool = true) async {
         guard let job = jobs.first(where: { $0.id == jobID }) else { return }
         var trackIDs: [String] = []
         for track in job.tracks {
             if let entry = await ledger.entry(for: track.videoID) { trackIDs.append(entry.musicTrackID) }
         }
         guard !trackIDs.isEmpty else { return }
-        update(jobID) { $0.phase = .preparing("Updating playlist in Apple Music…") }
+        if showProgress { update(jobID) { $0.phase = .preparing("Updating playlist in Apple Music…") } }
         let existing = await ledger.mirroredPlaylist(for: youtubePlaylistID)
         do {
             let playlistID = try await MusicLibrary.mirror(playlistNamed: job.title, existingID: existing, trackIDs: trackIDs)

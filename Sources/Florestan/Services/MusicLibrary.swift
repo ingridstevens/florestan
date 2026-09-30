@@ -63,7 +63,7 @@ enum MusicLibrary {
         _ = try await run(script, [trackID, albumArtist ?? "", trackNumber.map(String.init) ?? "", trackCount.map(String.init) ?? ""])
     }
 
-    /// Finds the playlist by persistent ID (or creates one named `name`) and appends any of `trackIDs` it doesn't contain yet, in order.
+    /// Finds the playlist by persistent ID (or creates one named `name`) and makes it hold `trackIDs` in exactly that order.
     /// Returns the playlist's persistent ID.
     static func mirror(playlistNamed name: String, existingID: String?, trackIDs: [String]) async throws -> String {
         let script = """
@@ -83,14 +83,20 @@ enum MusicLibrary {
                 try
                     set existing to persistent ID of every track of p
                 end try
+                set wanted to {}
                 repeat with tid in trackIDs
-                    set tid to tid as text
-                    if existing does not contain tid then
+                    set end of wanted to (tid as text)
+                end repeat
+                -- Appending can't reorder, so a playlist that's out of order is emptied and refilled.
+                -- Removing tracks from a playlist leaves them in the library.
+                if existing is not wanted then
+                    if (count of existing) > 0 then delete every track of p
+                    repeat with tid in wanted
                         try
                             duplicate (first track of library playlist 1 whose persistent ID is tid) to p
                         end try
-                    end if
-                end repeat
+                    end repeat
+                end if
                 return persistent ID of p
             end tell
         end run
