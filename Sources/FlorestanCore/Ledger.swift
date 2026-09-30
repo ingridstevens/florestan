@@ -20,8 +20,19 @@ public struct Ledger: Codable, Equatable, Sendable {
     public var songs: [String: LedgerEntry] = [:]
     /// YouTube playlist ID → Apple Music playlist persistent ID.
     public var mirroredPlaylists: [String: String] = [:]
+    /// YouTube playlist ID → videos the user took out of its Mirrored Playlist. They're skipped next time too.
+    public var removedFromPlaylists: [String: Set<String>] = [:]
 
     public init() {}
+
+    enum CodingKeys: String, CodingKey { case songs, mirroredPlaylists, removedFromPlaylists }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        songs = try c.decodeIfPresent([String: LedgerEntry].self, forKey: .songs) ?? [:]
+        mirroredPlaylists = try c.decodeIfPresent([String: String].self, forKey: .mirroredPlaylists) ?? [:]
+        removedFromPlaylists = try c.decodeIfPresent([String: Set<String>].self, forKey: .removedFromPlaylists) ?? [:]
+    }
 }
 
 /// Loads and saves the Ledger as JSON. All access is serialized.
@@ -61,6 +72,19 @@ public actor LedgerStore {
 
     public func setMirroredPlaylist(_ musicPlaylistID: String, for youtubePlaylistID: String) throws {
         ledger.mirroredPlaylists[youtubePlaylistID] = musicPlaylistID
+        try save()
+    }
+
+    public func removedVideos(from youtubePlaylistID: String) -> Set<String> {
+        ledger.removedFromPlaylists[youtubePlaylistID] ?? []
+    }
+
+    public func setRemoved(_ removed: Bool, videoID: String, from youtubePlaylistID: String) throws {
+        if removed {
+            ledger.removedFromPlaylists[youtubePlaylistID, default: []].insert(videoID)
+        } else {
+            ledger.removedFromPlaylists[youtubePlaylistID]?.remove(videoID)
+        }
         try save()
     }
 

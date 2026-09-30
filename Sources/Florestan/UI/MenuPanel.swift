@@ -93,6 +93,7 @@ struct MenuPanel: View {
 }
 
 struct ActiveJobSummary: View {
+    @Environment(AppModel.self) private var model
     var job: Job
     var tint: Color
 
@@ -106,6 +107,12 @@ struct ActiveJobSummary: View {
                         .font(.callout).foregroundStyle(.secondary).lineLimit(1)
                 }
                 Spacer(minLength: 0)
+                Button { model.cancel(job) } label: {
+                    Image(systemName: "stop.circle.fill").font(.title3).foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Stop downloading")
+                .accessibilityLabel("Stop downloading \(job.title)")
             }
             ProgressLine(value: job.progress, tint: tint)
             Text(job.summary).font(.caption).foregroundStyle(.secondary)
@@ -145,6 +152,15 @@ struct CompactJobRow: View {
                 .help(job.link.isPlaylist ? "Try the failed songs again" : "Try again")
             } else {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(tint)
+            }
+            if model.canOpenInAppleMusic(job) {
+                Button { model.openInAppleMusic(job) } label: {
+                    Image(systemName: "arrow.up.forward.app")
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.secondary)
+                .help(job.link.isPlaylist ? "Open this playlist in Apple Music" : "Show this song in Apple Music")
+                .accessibilityLabel("Open in Apple Music")
             }
         }
         .accessibilityElement(children: .contain)

@@ -10,6 +10,8 @@ struct Track: Identifiable, Codable, Hashable {
         case imported
         /// Already in the Ledger.
         case skipped
+        /// Taken out of this playlist by the user; not downloaded, and not in the Mirrored Playlist.
+        case removed
         case failed(String)
     }
 
@@ -23,7 +25,7 @@ struct Track: Identifiable, Codable, Hashable {
 
     var isDone: Bool {
         switch state {
-        case .imported, .skipped, .failed: true
+        case .imported, .skipped, .removed, .failed: true
         default: false
         }
     }
@@ -46,6 +48,8 @@ struct Job: Identifiable, Codable {
     var tracks: [Track] = []
     var createdAt = Date.now
     var finishedAt: Date?
+    /// Set by Retry: only the songs reset to waiting run again; the playlist isn't re-read. Optional so older history still loads.
+    var retrying: Bool?
 
     var isActive: Bool {
         switch phase {
@@ -62,6 +66,7 @@ struct Job: Identifiable, Codable {
     }
 
     var importedCount: Int { tracks.count { $0.state == .imported } }
+    var removedCount: Int { tracks.count { $0.state == .removed } }
     var skippedCount: Int { tracks.count { $0.state == .skipped } }
     var failedCount: Int { tracks.count { if case .failed = $0.state { true } else { false } } }
     var doneCount: Int { tracks.count(where: \.isDone) }
@@ -96,6 +101,7 @@ struct Job: Identifiable, Codable {
                 parts.append("Downloading")
             }
             if link.isPlaylist && skippedCount > 0 { parts.append("\(skippedCount) already had") }
+            if removedCount > 0 { parts.append("\(removedCount) removed") }
             if failedCount > 0 { parts.append("\(failedCount) failed") }
             return parts.joined(separator: ", ")
         }

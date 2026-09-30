@@ -52,7 +52,6 @@ final class RecommendationsModel {
     private(set) var ownedIdeasCount = 0
     /// Why adding a Recommendation didn't start, by video ID.
     private(set) var addErrors: [String: String] = [:]
-    private var matcherCache: (matcher: LibraryMatcher, songCount: Int, builtAt: Date)?
 
     private var dismissed: Set<String>
     private var lastRefresh: Date?
@@ -93,7 +92,7 @@ final class RecommendationsModel {
     private func pruneOwned(using model: AppModel) {
         guard !items.isEmpty else { return }
         Task {
-            let owned = await libraryMatcher(using: model)
+            let owned = await model.libraryMatcher()
             let before = items.count
             items.removeAll { !added.contains($0.videoID) && owned.contains(title: $0.title, artist: $0.artist) }
             if items.count != before {
@@ -111,7 +110,7 @@ final class RecommendationsModel {
         let downloader = Downloader(cookieBrowser: model.settings.useBrowserLogin ? model.settings.cookieBrowser : nil)
         let known = Set(model.librarySongs.map(\.videoID))
         Task {
-            async let ownedLibrary = libraryMatcher(using: model)
+            async let ownedLibrary = model.libraryMatcher()
             // Seed video → its Mix entries, fetched three at a time.
             var mixes: [(LedgerEntry, [YTDLP.FlatPlaylist.Entry])] = []
             await withTaskGroup(of: (LedgerEntry, [YTDLP.FlatPlaylist.Entry]).self) { group in
@@ -220,7 +219,7 @@ final class RecommendationsModel {
         ideaPhase = .loading
         ideasStartedAt = .now
         Task {
-            async let ownedLibrary = libraryMatcher(using: model)
+            async let ownedLibrary = model.libraryMatcher()
             var reply: String?
             var failure: String?
             // The on-device model has a small context window (about 4,000 tokens for prompt and answer together).
@@ -334,25 +333,6 @@ final class RecommendationsModel {
 
     func dismiss(_ idea: IdeaRecommendation) {
         ideas.removeAll { $0.id == idea.id }
-    }
-
-    /// Every song in Apple Music plus everything Florestan imported. Built off the main thread, and reused for
-    /// ten minutes or until Florestan imports something, because reading a big library takes a while and holds up imports.
-    private func libraryMatcher(using model: AppModel) async -> LibraryMatcher {
-        if let cache = matcherCache, cache.songCount == model.librarySongs.count,
-           Date.now.timeIntervalSince(cache.builtAt) < 10 * 60 {
-            return cache.matcher
-        }
-        let imported = model.librarySongs.map { ($0.metadata.title, $0.metadata.artist) }
-        let built = await Task.detached(priority: .utility) { () -> LibraryMatcher in
-            var matcher = LibraryMatcher(songs: imported)
-            if let songs = try? await MusicLibrary.allSongs() {
-                for song in songs { matcher.add(title: song.name, artist: song.artist) }
-            }
-            return matcher
-        }.value
-        matcherCache = (built, model.librarySongs.count, .now)
-        return built
     }
 
     private func save() {

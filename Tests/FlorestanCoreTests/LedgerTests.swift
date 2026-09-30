@@ -18,4 +18,20 @@ import Testing
         try await reloaded.forget("v1")
         #expect(await LedgerStore(fileURL: url).contains("v1") == false)
     }
+
+    @Test func readsLedgersWrittenBeforeRemovalsExisted() throws {
+        let json = #"{"songs":{},"mirroredPlaylists":{"PL1":"ABC"}}"#
+        let ledger = try JSONDecoder.florestan.decode(Ledger.self, from: Data(json.utf8))
+        #expect(ledger.mirroredPlaylists["PL1"] == "ABC")
+        #expect(ledger.removedFromPlaylists.isEmpty)
+    }
+
+    @Test func remembersRemovedSongs() async throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathComponent("ledger.json")
+        let store = LedgerStore(fileURL: url)
+        try await store.setRemoved(true, videoID: "v1", from: "PL1")
+        #expect(await LedgerStore(fileURL: url).removedVideos(from: "PL1") == ["v1"])
+        try await store.setRemoved(false, videoID: "v1", from: "PL1")
+        #expect(await LedgerStore(fileURL: url).removedVideos(from: "PL1").isEmpty)
+    }
 }

@@ -24,11 +24,17 @@ struct ForYouPage: View {
             VStack(alignment: .leading, spacing: 14) {
                 PageHeader(title: "For you", subtitle: source.subtitle) {
                     Button {
-                        refresh()
+                        if !isLoading { refresh() }
                     } label: {
-                        Label(source == .youtube ? "Refresh" : "New ideas", systemImage: "arrow.clockwise")
+                        Label {
+                            Text(source == .youtube ? "Refresh" : "New ideas")
+                        } icon: {
+                            // Spins while working instead of greying out.
+                            Image(systemName: "arrow.clockwise")
+                                .symbolEffect(.rotate.byLayer, options: .repeat(.continuous), isActive: isLoading)
+                        }
                     }
-                    .disabled(isLoading || model.librarySongs.isEmpty
+                    .disabled(model.librarySongs.isEmpty
                               || (source == .appleIntelligence && recommendations.ideasUnavailableReason != nil))
                 }
                 Picker("Source", selection: $source) {

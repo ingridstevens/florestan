@@ -26,14 +26,18 @@ enum Notifier {
                 body = job.importedCount == 1 ? "Added to Apple Music" : job.skippedCount == 1 ? "Already in your library" : "Not added"
             }
         }
-        post(title: job.title, body: body)
+        post(title: job.title, body: body, jobID: job.importedCount + job.skippedCount > 0 ? job.id : nil)
     }
 
-    static func post(title: String, body: String) {
+    static let jobIDKey = "jobID"
+
+    /// `jobID`, when set, makes clicking the notification open that Job's result in Apple Music.
+    static func post(title: String, body: String, jobID: UUID? = nil) {
         guard available else { return }
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
+        if let jobID { content.userInfo = [jobIDKey: jobID.uuidString] }
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
     }
 }

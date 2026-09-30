@@ -21,6 +21,13 @@ struct DownloadsPage: View {
                                     .foregroundStyle(.secondary).frame(width: 20)
                                 Text(job.link.url.absoluteString).lineLimit(1).truncationMode(.middle)
                                     .foregroundStyle(.secondary)
+                                Spacer()
+                                Button { model.cancel(job) } label: {
+                                    Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary)
+                                }
+                                .buttonStyle(.plain)
+                                .help("Don't download this")
+                                .accessibilityLabel("Remove from the queue")
                             }
                         }
                     }
@@ -80,6 +87,7 @@ struct SectionLabel: View {
 }
 
 private struct ActiveJobCard: View {
+    @Environment(AppModel.self) private var model
     var job: Job
     var tint: Color
 
@@ -91,11 +99,18 @@ private struct ActiveJobCard: View {
                     Text(job.title).font(.system(size: 20, weight: .bold, design: .rounded)).lineLimit(2)
                     Text(job.summary).foregroundStyle(.secondary)
                 }
+                Spacer()
+                Button("Stop") { model.cancel(job) }
+                    .help("Stop downloading. Songs already added stay; Retry gets the rest.")
             }
             ProgressLine(value: job.progress, tint: tint)
             if job.tracks.count > 1 {
                 LazyVStack(alignment: .leading, spacing: 2) {
-                    ForEach(job.tracks) { TrackRow(track: $0, tint: tint) }
+                    ForEach(job.tracks) { track in
+                        TrackRow(track: track, tint: tint,
+                                 onRemove: job.link.isPlaylist ? { model.removeFromPlaylist(track.videoID, in: job.id) } : nil,
+                                 onAddBack: job.link.isPlaylist ? { model.addBackToPlaylist(track.videoID, in: job.id) } : nil)
+                    }
                 }
             }
         }
@@ -105,6 +120,7 @@ private struct ActiveJobCard: View {
 }
 
 private struct HistoryRow: View {
+    @Environment(AppModel.self) private var model
     var job: Job
     var tint: Color
     @ViewState private var expanded = false
@@ -131,7 +147,11 @@ private struct HistoryRow: View {
 
             if expanded {
                 VStack(alignment: .leading, spacing: 2) {
-                    ForEach(job.tracks) { TrackRow(track: $0, tint: tint) }
+                    ForEach(job.tracks) { track in
+                        TrackRow(track: track, tint: tint,
+                                 onRemove: job.link.isPlaylist ? { model.removeFromPlaylist(track.videoID, in: job.id) } : nil,
+                                 onAddBack: job.link.isPlaylist ? { model.addBackToPlaylist(track.videoID, in: job.id) } : nil)
+                    }
                 }
                 .padding(.leading, 38)
                 .padding(.bottom, 6)

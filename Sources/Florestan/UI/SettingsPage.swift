@@ -49,6 +49,7 @@ struct SettingsPage: View {
                 SettingGroup("Tools") {
                     LabeledContent("yt-dlp", value: model.ytdlpVersion ?? "Not installed")
                     LabeledContent("ffmpeg", value: Downloader.ffmpeg == nil ? "Not installed" : "Installed")
+                    LeftoversRow()
                     HStack {
                         Button("Check again") { Task { await model.refreshTools() } }
                         Button("Show downloads folder") {
@@ -126,5 +127,28 @@ private struct AboutSection: View {
                 .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: 520, alignment: .leading)
+    }
+}
+
+/// Leftover files from downloads that failed or were stopped.
+private struct LeftoversRow: View {
+    @Environment(AppModel.self) private var model
+    @ViewState private var summary: AppModel.Leftovers?
+
+    var body: some View {
+        HStack {
+            if let summary, summary.count > 0 {
+                Text("\(summary.count) leftover \(summary.count == 1 ? "file" : "files") from failed downloads, \(ByteCountFormatter.string(fromByteCount: summary.bytes, countStyle: .file))")
+                Spacer()
+                Button("Clean up") {
+                    model.cleanUpLeftovers()
+                    self.summary = model.leftoverSummary()
+                }
+            } else {
+                Text("No leftover files. Florestan also clears them out after three days.")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .onAppear { summary = model.leftoverSummary() }
     }
 }

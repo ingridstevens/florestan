@@ -16,8 +16,15 @@ if [[ ! -f build/AppIcon.icns ]]; then
 fi
 cp build/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
-# Ad-hoc signature: required for notifications and the Music permission prompt.
-codesign --force --sign - "$APP"
+# Sign with the local certificate if it's set up (./scripts/setup-signing.sh), so macOS keeps Florestan's
+# permissions across builds. Otherwise sign ad hoc, which notifications and the Music prompt still need.
+IDENTITY="Florestan Local Signing"
+if security find-identity -v -p codesigning | grep -q "$IDENTITY"; then
+    codesign --force --sign "$IDENTITY" "$APP"
+else
+    echo "Signing ad hoc; run ./scripts/setup-signing.sh once so permissions survive rebuilds."
+    codesign --force --sign - "$APP"
+fi
 
 if [[ "${1:-}" != "--no-install" ]]; then
     mkdir -p ~/Applications

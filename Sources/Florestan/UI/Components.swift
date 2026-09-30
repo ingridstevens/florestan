@@ -89,7 +89,16 @@ struct LinkField: View {
         let inLibrary: Bool = if case .song(let id) = link { model.isInLibrary(id) } else { false }
         if let p = await Downloader.preview(of: link.url) {
             if Task.isCancelled { return }
-            preview = .ready(p, isPlaylist: link.isPlaylist, inLibrary: inLibrary)
+            preview = .ready(p, isPlaylist: link.isPlaylist, inLibrary: inLibrary, maybeOwned: false)
+            // A different upload of a song you have (official video vs. audio, say) isn't caught by the video ID.
+            if !link.isPlaylist && !inLibrary {
+                let meta = TrackMetadata(from: VideoInfo(id: "", title: p.title, channel: p.author))
+                let owned = await model.libraryMatcher()
+                if Task.isCancelled { return }
+                if owned.contains(title: meta.title, artist: meta.artist) {
+                    preview = .ready(p, isPlaylist: false, inLibrary: false, maybeOwned: true)
+                }
+            }
         } else {
             preview = .unknown(isPlaylist: link.isPlaylist)
         }
@@ -120,7 +129,7 @@ enum LinkPreviewState: Equatable {
     case none
     case notALink
     case loading(isPlaylist: Bool)
-    case ready(Downloader.Preview, isPlaylist: Bool, inLibrary: Bool)
+    case ready(Downloader.Preview, isPlaylist: Bool, inLibrary: Bool, maybeOwned: Bool)
     /// A valid link YouTube wouldn't describe (e.g. a YouTube Music album page).
     case unknown(isPlaylist: Bool)
 }
@@ -139,7 +148,7 @@ private struct LinkPreviewRow: View {
             case .loading(let isPlaylist):
                 ProgressView().controlSize(.small).tint(.white)
                 Text(isPlaylist ? "Looking up playlist…" : "Looking up song…").font(.callout).foregroundStyle(.white.opacity(0.85))
-            case .ready(let p, let isPlaylist, let inLibrary):
+            case .ready(let p, let isPlaylist, let inLibrary, let maybeOwned):
                 AsyncImage(url: p.thumbnail) { image in
                     image.resizable().aspectRatio(contentMode: .fill)
                 } placeholder: {
@@ -150,6 +159,11 @@ private struct LinkPreviewRow: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(p.title).font(.callout.weight(.semibold)).lineLimit(1)
                     Text(detail(p.author, isPlaylist: isPlaylist, inLibrary: inLibrary)).font(.caption).opacity(0.85).lineLimit(1)
+                    if maybeOwned {
+                        Label("Looks like you already have this song in Apple Music", systemImage: "exclamationmark.circle")
+                            .font(.caption.weight(.semibold))
+                            .lineLimit(1)
+                    }
                 }
                 .foregroundStyle(.white)
             case .unknown(let isPlaylist):
@@ -230,6 +244,8 @@ struct TrackStateIcon: View {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(tint)
             case .skipped:
                 Image(systemName: "checkmark.circle").foregroundStyle(.secondary)
+            case .removed:
+                Image(systemName: "minus.circle").foregroundStyle(.tertiary)
             case .failed:
                 Image(systemName: "exclamationmark.circle.fill").foregroundStyle(.orange)
             }
@@ -241,28 +257,58 @@ struct TrackStateIcon: View {
 struct TrackRow: View {
     var track: Track
     var tint: Color
+    /// Set for songs in a playlist: shows the grey ✕ that takes the song out of it.
+    var onRemove: (() -> Void)? = nil
+    var onAddBack: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 10) {
             Thumbnail(url: track.thumbnailURL, size: 32, corner: 5)
+                .opacity(track.state == .removed ? 0.4 : 1)
             VStack(alignment: .leading, spacing: 1) {
                 Text(track.title).lineLimit(1)
+                    .strikethrough(track.state == .removed)
+                    .foregroundStyle(track.state == .removed ? .secondary : .primary)
                 Text(detail).font(.caption).foregroundStyle(isFailure ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary)).lineLimit(2)
             }
             Spacer(minLength: 8)
-            TrackStateIcon(state: track.state, tint: tint)
+            if track.state == .removed, let onAddBack {
+                Button("Add back", action: onAddBack)
+                    .buttonStyle(.borderless)
+                    .font(.caption)
+            } else {
+                TrackStateIcon(state: track.state, tint: tint)
+                if let onRemove, canRemove {
+                    Button(action: onRemove) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.tertiary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Remove from this playlist. The song stays in your library.")
+                    .accessibilityLabel("Remove \(track.title) from this playlist")
+                }
+            }
         }
         .padding(.vertical, 3)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
     }
 
     private var isFailure: Bool { if case .failed = track.state { true } else { false } }
+
+    /// Songs mid-download or mid-import finish first; everything else can go.
+    private var canRemove: Bool {
+        switch track.state {
+        case .downloading, .importing, .removed: false
+        default: true
+        }
+    }
 
     private var detail: String {
         switch track.state {
         case .failed(let why): why
         case .skipped: [track.artist, "Already in your library"].compactMap { $0 }.joined(separator: ", ")
         case .importing: "Adding to Apple Music…"
+        case .removed: "Removed from this playlist"
         default: track.artist ?? " "
         }
     }

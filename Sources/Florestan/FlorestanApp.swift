@@ -1,6 +1,7 @@
 import AppKit
 import FlorestanCore
 import SwiftUI
+import UserNotifications
 
 @main
 struct FlorestanApp: App {
@@ -76,6 +77,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         Notifier.requestPermission()
+        if Bundle.main.bundleURL.pathExtension == "app" { UNUserNotificationCenter.current().delegate = self }
         hotKey = HotKey { [weak self] in
             Task { @MainActor in self?.downloadClipboard() }
         }
@@ -95,5 +97,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .toolsMissing:
             Notifier.post(title: "Florestan needs yt-dlp and ffmpeg", body: "Run: brew install yt-dlp ffmpeg")
         }
+    }
+}
+
+extension AppDelegate: UNUserNotificationCenterDelegate {
+    /// Show banners even while Florestan is the active app (e.g. with its window open).
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async
+        -> UNNotificationPresentationOptions {
+        [.banner, .sound]
+    }
+
+    /// Clicking a "done" notification opens the result in Apple Music.
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
+        guard let raw = response.notification.request.content.userInfo[Notifier.jobIDKey] as? String,
+              let jobID = UUID(uuidString: raw) else { return }
+        await MainActor.run { model.openInAppleMusic(jobID: jobID) }
     }
 }

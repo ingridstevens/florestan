@@ -33,6 +33,8 @@ final class AppModel {
     private let historyURL: URL
     private let downloadsFolder: URL
     private var runner: Task<Void, Never>?
+    private var currentJob: (id: UUID, task: Task<Void, Never>)?
+    private var matcherCache: (matcher: LibraryMatcher, songCount: Int, builtAt: Date)?
 
     static let supportFolder: URL = {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -55,7 +57,8 @@ final class AppModel {
             }
             jobs = saved
         }
-        Task { await refreshLibrary(); await refreshTools(); await groupOlderSongs(); await reorderEarlierPlaylists() }
+        Task { await refreshLibrary(); await refreshTools(); await groupOlderSongs(); await reorderEarlierPlaylists()
+            cleanUpLeftovers(olderThan: 3 * 24 * 60 * 60) }
     }
 
     // MARK: - Derived
@@ -81,11 +84,26 @@ final class AppModel {
         return .queued
     }
 
-    /// Queues the same Link again. Songs that already made it are skipped, so only the failed ones are retried.
+    /// Tries the failed songs of a Job again, and only those. A Job that failed before it had any songs
+    /// (say, the playlist couldn't be read) starts over.
     func retry(_ job: Job) {
         guard job.isFinished, !jobs.contains(where: { $0.link == job.link && !$0.isFinished }) else { return }
+        var again = job
+        let hasFailedSongs = again.tracks.contains { if case .failed = $0.state { true } else { false } }
+        if hasFailedSongs {
+            for i in again.tracks.indices {
+                if case .failed = again.tracks[i].state { again.tracks[i].state = .waiting }
+            }
+            again.retrying = true
+        } else {
+            again.tracks = []
+            again.retrying = nil
+        }
+        again.phase = .queued
+        again.finishedAt = nil
+        // Back of the queue, behind links pasted in the meantime.
         jobs.removeAll { $0.id == job.id }
-        jobs.append(Job(link: job.link, title: job.title))
+        jobs.append(again)
         saveHistory()
         startRunner()
     }
@@ -97,6 +115,110 @@ final class AppModel {
     /// True while a Job for this video is waiting or running.
     func isDownloading(_ videoID: String) -> Bool {
         jobs.contains { !$0.isFinished && ($0.link == .song(videoID: videoID) || $0.tracks.contains { $0.videoID == videoID }) }
+    }
+
+    /// Takes a song out of a playlist: skips it if it hasn't downloaded yet, removes it from the Mirrored Playlist
+    /// in Apple Music if it has, and remembers the choice for the next time this playlist is pasted.
+    /// The song itself stays in the library.
+    func removeFromPlaylist(_ videoID: String, in jobID: UUID) {
+        guard let job = jobs.first(where: { $0.id == jobID }), case .playlist(let playlistID, _) = job.link else { return }
+        updateTrack(jobID, videoID) { $0.state = .removed }
+        saveHistory()
+        Task {
+            try? await ledger.setRemoved(true, videoID: videoID, from: playlistID)
+            if job.isFinished { await mirrorPlaylist(jobID: jobID, youtubePlaylistID: playlistID, showProgress: false) }
+        }
+    }
+
+    /// Undoes `removeFromPlaylist`. A song that never downloaded comes back with the next Retry.
+    func addBackToPlaylist(_ videoID: String, in jobID: UUID) {
+        guard let job = jobs.first(where: { $0.id == jobID }), case .playlist(let playlistID, _) = job.link else { return }
+        Task {
+            try? await ledger.setRemoved(false, videoID: videoID, from: playlistID)
+            let inLedger = await ledger.contains(videoID)
+            updateTrack(jobID, videoID) { $0.state = inLedger ? .skipped : .failed("Not downloaded yet. Use Retry to get it.") }
+            saveHistory()
+            if job.isFinished, inLedger { await mirrorPlaylist(jobID: jobID, youtubePlaylistID: playlistID, showProgress: false) }
+        }
+    }
+
+    /// Every song in Apple Music plus everything Florestan imported. Built off the main thread, and reused for
+    /// ten minutes or until Florestan imports something, because reading a big library takes a while and holds up imports.
+    func libraryMatcher() async -> LibraryMatcher {
+        if let cache = matcherCache, cache.songCount == librarySongs.count,
+           Date.now.timeIntervalSince(cache.builtAt) < 10 * 60 {
+            return cache.matcher
+        }
+        let imported = librarySongs.map { ($0.metadata.title, $0.metadata.artist) }
+        let built = await Task.detached(priority: .utility) { () -> LibraryMatcher in
+            var matcher = LibraryMatcher(songs: imported)
+            if let songs = try? await MusicLibrary.allSongs() {
+                for song in songs { matcher.add(title: song.name, artist: song.artist) }
+            }
+            return matcher
+        }.value
+        matcherCache = (built, librarySongs.count, .now)
+        return built
+    }
+
+    // MARK: - Leftover files
+
+    struct Leftovers { var count: Int; var bytes: Int64 }
+
+    /// Files in ~/Music/Florestan that never made it into Apple Music (failed or stopped downloads).
+    /// Files of imported songs are kept: if they're still there, Music is using them directly.
+    func leftovers(olderThan age: TimeInterval = 0) -> [URL] {
+        let busy = Set(jobs.filter { !$0.isFinished }.flatMap { $0.tracks.map(\.videoID) })
+        let imported = Set(librarySongs.map(\.videoID))
+        let files = (try? FileManager.default.contentsOfDirectory(at: downloadsFolder, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+        return files.filter { file in
+            let videoID = String(file.lastPathComponent.split(separator: ".").first ?? "")
+            guard !busy.contains(videoID), !imported.contains(videoID) else { return false }
+            let modified = (try? file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            return Date.now.timeIntervalSince(modified) >= age
+        }
+    }
+
+    func leftoverSummary() -> Leftovers {
+        let files = leftovers()
+        let bytes = files.reduce(Int64(0)) { $0 + Int64((try? $1.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0) }
+        return Leftovers(count: files.count, bytes: bytes)
+    }
+
+    /// Deletes leftovers. Automatic clean-ups only take files older than three days, so a quick Retry can reuse them.
+    @discardableResult
+    func cleanUpLeftovers(olderThan age: TimeInterval = 0) -> Int {
+        let files = leftovers(olderThan: age)
+        for file in files { try? FileManager.default.removeItem(at: file) }
+        return files.count
+    }
+
+    /// Whether the Job left something in Apple Music to open.
+    func canOpenInAppleMusic(_ job: Job) -> Bool {
+        job.isFinished && (job.importedCount + job.skippedCount) > 0
+    }
+
+    /// Opens the Mirrored Playlist of a playlist Job, or the song of a song Job, in Music.
+    func openInAppleMusic(_ job: Job) {
+        switch job.link {
+        case .song(let videoID):
+            showInAppleMusic(videoID)
+        case .playlist(let playlistID, _):
+            Task {
+                guard let musicID = await ledger.mirroredPlaylist(for: playlistID) else { return }
+                do {
+                    try await MusicLibrary.revealPlaylist(id: musicID)
+                } catch MusicError.notAuthorized {
+                    musicNotAuthorized = true
+                } catch {
+                    Notifier.post(title: "Couldn't find “\(job.title)” in Apple Music", body: "The playlist may have been deleted. Retry recreates it.")
+                }
+            }
+        }
+    }
+
+    func openInAppleMusic(jobID: UUID) {
+        if let job = jobs.first(where: { $0.id == jobID }) { openInAppleMusic(job) }
     }
 
     /// True when the latest attempt at this video failed and nothing is retrying it.
@@ -150,9 +272,22 @@ final class AppModel {
         guard runner == nil else { return }
         runner = Task {
             while let next = jobs.first(where: { $0.phase == .queued }) {
-                await run(next.id)
+                let task = Task { await self.run(next.id) }
+                currentJob = (next.id, task)
+                await task.value
+                currentJob = nil
             }
             runner = nil
+        }
+    }
+
+    /// Stops the running Job (songs already added stay added; Retry picks up the rest) or drops a waiting one.
+    func cancel(_ job: Job) {
+        if job.phase == .queued {
+            jobs.removeAll { $0.id == job.id }
+            saveHistory()
+        } else if let currentJob, currentJob.id == job.id {
+            currentJob.task.cancel()
         }
     }
 
@@ -178,43 +313,53 @@ final class AppModel {
             ytdlpVersion = await Downloader.ytdlpVersion()
         }
 
-        // Plan the Tracks.
-        switch job.link {
-        case .song(let videoID):
-            update(id) { $0.tracks = [Track(videoID: videoID, title: "Fetching song…")] }
-            if let quick = await Downloader.quickInfo(videoID: videoID) {
-                let meta = TrackMetadata(from: VideoInfo(id: videoID, title: quick.title, channel: quick.author))
-                update(id) { job in
-                    job.title = meta.title
-                    job.tracks[0].title = meta.title
-                    job.tracks[0].artist = meta.artist
+        // Plan the Tracks, unless this is a Retry of particular songs.
+        if job.retrying == true {
+            update(id) { $0.phase = .running }
+        } else {
+            switch job.link {
+            case .song(let videoID):
+                update(id) { $0.tracks = [Track(videoID: videoID, title: "Fetching song…")] }
+                if let quick = await Downloader.quickInfo(videoID: videoID) {
+                    let meta = TrackMetadata(from: VideoInfo(id: videoID, title: quick.title, channel: quick.author))
+                    update(id) { job in
+                        job.title = meta.title
+                        job.tracks[0].title = meta.title
+                        job.tracks[0].artist = meta.artist
+                    }
+                }
+            case .playlist:
+                update(id) { $0.phase = .preparing("Reading playlist…") }
+                do {
+                    let playlist = try await downloader.fetchPlaylist(job.link)
+                    update(id) { job in
+                        job.title = playlist.title ?? "Playlist"
+                        job.tracks = playlist.entries.map { Track(videoID: $0.id, title: $0.title ?? "Untitled") }
+                    }
+                } catch {
+                    finish(id, failure: Task.isCancelled ? "Stopped" : (error as? DownloadFailure)?.failure.message ?? error.localizedDescription)
+                    return
                 }
             }
-        case .playlist:
-            update(id) { $0.phase = .preparing("Reading playlist…") }
-            do {
-                let playlist = try await downloader.fetchPlaylist(job.link)
-                update(id) { job in
-                    job.title = playlist.title ?? "Playlist"
-                    job.tracks = playlist.entries.map { Track(videoID: $0.id, title: $0.title ?? "Untitled") }
-                }
-            } catch {
-                finish(id, failure: (error as? DownloadFailure)?.failure.message ?? error.localizedDescription)
-                return
-            }
-        }
 
-        for track in jobs.first(where: { $0.id == id })?.tracks ?? [] where await ledger.contains(track.videoID) {
-            let known = await ledger.entry(for: track.videoID)
-            updateTrack(id, track.videoID) { t in
-                t.state = .skipped
-                if let known { t.title = known.metadata.title; t.artist = known.metadata.artist }
+            if case .playlist(let playlistID, _) = job.link {
+                let removed = await ledger.removedVideos(from: playlistID)
+                update(id) { job in
+                    for i in job.tracks.indices where removed.contains(job.tracks[i].videoID) { job.tracks[i].state = .removed }
+                }
             }
+            for track in jobs.first(where: { $0.id == id })?.tracks ?? [] where track.state == .waiting {
+                guard let known = await ledger.entry(for: track.videoID) else { continue }
+                updateTrack(id, track.videoID) { t in
+                    t.state = .skipped
+                    t.title = known.metadata.title; t.artist = known.metadata.artist
+                }
+            }
+            if case .song = job.link, let only = jobs.first(where: { $0.id == id })?.tracks.first, only.state == .skipped {
+                update(id) { $0.title = only.title }
+            }
+            update(id) { $0.phase = .running }
         }
-        if case .song = job.link, let only = jobs.first(where: { $0.id == id })?.tracks.first, only.state == .skipped {
-            update(id) { $0.title = only.title }
-        }
-        update(id) { $0.phase = .running }
 
         // Download and Import, up to three Tracks at a time.
         let pending = jobs.first(where: { $0.id == id })?.tracks.filter { $0.state == .waiting }.map(\.videoID) ?? []
@@ -231,11 +376,22 @@ final class AppModel {
             }
         }
 
+        let stopped = Task.isCancelled
+        if stopped {
+            update(id) { job in
+                for i in job.tracks.indices where !job.tracks[i].isDone { job.tracks[i].state = .failed("Stopped") }
+            }
+        }
+        // Even a stopped playlist gets the songs that made it, in order.
         if case .playlist(let playlistID, _) = job.link {
             await numberAlbumTracks(jobID: id)
-            await mirrorPlaylist(jobID: id, youtubePlaylistID: playlistID)
+            await mirrorPlaylist(jobID: id, youtubePlaylistID: playlistID, showProgress: !stopped)
         }
-        finish(id, failure: nil)
+        if stopped, let done = jobs.first(where: { $0.id == id }) {
+            finish(id, failure: done.importedCount > 0 ? "Stopped after adding \(done.importedCount)" : "Stopped")
+        } else {
+            finish(id, failure: nil)
+        }
     }
 
     /// Per-Job state shared by its Tracks.
@@ -248,10 +404,16 @@ final class AppModel {
 
     private func process(_ videoID: String, _ context: TrackContext) async {
         let jobID = context.jobID
+        // Removed while it was waiting its turn.
+        if jobs.first(where: { $0.id == jobID })?.tracks.first(where: { $0.videoID == videoID })?.state == .removed { return }
         updateTrack(jobID, videoID) { $0.state = .downloading(0) }
         var attempt = 0
         while true {
             attempt += 1
+            if Task.isCancelled {
+                updateTrack(jobID, videoID) { $0.state = .failed("Stopped") }
+                return
+            }
             do {
                 let downloaded = try await context.downloader.downloadAudio(videoID: videoID, into: downloadsFolder) { progress in
                     Task { @MainActor in
@@ -366,7 +528,7 @@ final class AppModel {
     private func mirrorPlaylist(jobID: UUID, youtubePlaylistID: String, showProgress: Bool = true) async {
         guard let job = jobs.first(where: { $0.id == jobID }) else { return }
         var trackIDs: [String] = []
-        for track in job.tracks {
+        for track in job.tracks where track.state != .removed {
             if let entry = await ledger.entry(for: track.videoID) { trackIDs.append(entry.musicTrackID) }
         }
         guard !trackIDs.isEmpty else { return }
@@ -383,6 +545,7 @@ final class AppModel {
     private func finish(_ id: UUID, failure: String?) {
         update(id) { job in
             job.finishedAt = .now
+            job.retrying = nil
             if let failure {
                 job.phase = .failed(failure)
                 if failure == YTDLP.Failure.botCheck.message { botCheckHit = true }
