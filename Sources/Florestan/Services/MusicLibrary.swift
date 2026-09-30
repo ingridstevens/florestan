@@ -26,9 +26,10 @@ enum MusicLibrary {
     static func importTrack(file: URL, metadata: TrackMetadata) async throws -> ImportedTrack {
         let script = """
         on run argv
-            set f to POSIX file (item 1 of argv)
+            -- Music rejects a bare file reference with error -50; it needs an alias and an explicit destination.
+            set f to (POSIX file (item 1 of argv)) as alias
             tell application "Music"
-                set t to add f
+                set t to add f to library playlist 1
                 set name of t to item 2 of argv
                 set artist of t to item 3 of argv
                 set album of t to item 4 of argv

@@ -44,6 +44,16 @@ struct Downloader: Sendable {
         return result?.succeeded ?? false
     }
 
+    /// True when a VPN sends all traffic through a tunnel (the `0/1` + `128.0/1` routes that WireGuard and OpenVPN install).
+    /// YouTube blocks most VPN exit addresses, so this is the usual cause of its bot check.
+    static func fullTunnelVPNActive() async -> Bool {
+        guard let result = try? await Shell.run(URL(fileURLWithPath: "/usr/sbin/netstat"), ["-rn", "-f", "inet"]) else { return false }
+        return result.stdout.split(separator: "\n").contains { line in
+            let cols = line.split(separator: " ", omittingEmptySubsequences: true)
+            return cols.count >= 2 && (cols[0] == "0/1" || cols[0] == "default") && cols.last?.hasPrefix("utun") == true
+        }
+    }
+
     /// Title and channel from YouTube's oEmbed endpoint: fast, and usually works even when yt-dlp is blocked.
     static func quickInfo(videoID: String) async -> (title: String, author: String)? {
         var components = URLComponents(string: "https://www.youtube.com/oembed")!

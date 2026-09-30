@@ -212,9 +212,12 @@ struct BotCheckNotice: View {
     var body: some View {
         @Bindable var settings = model.settings
         VStack(alignment: .leading, spacing: 8) {
-            Label("YouTube is blocking downloads on this network", systemImage: "hand.raised")
+            Label(model.vpnActive ? "Your VPN is blocking YouTube downloads" : "YouTube is blocking downloads on this network",
+                  systemImage: "hand.raised")
                 .font(.headline)
-            Text("YouTube sometimes blocks office, VPN and data-center connections. Try another network, like a phone hotspot, or let Florestan use your browser's YouTube login.")
+            Text(model.vpnActive
+                 ? "A VPN on this Mac sends all your traffic through a server that YouTube doesn't trust. Turn the VPN off while you download, then try again."
+                 : "YouTube sometimes blocks office, VPN and data-center connections. Try another network, like a phone hotspot, or let Florestan use your browser's YouTube login.")
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             if !compact {

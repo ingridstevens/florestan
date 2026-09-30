@@ -17,7 +17,11 @@ final class AppModel {
     private(set) var toolsInstalled = Downloader.toolsInstalled
     private(set) var ytdlpVersion: String?
     /// Set when YouTube asked for a bot check, so the UI can offer the browser-login setting.
-    var botCheckHit = false
+    var botCheckHit = false {
+        didSet { if botCheckHit { Task { vpnActive = await Downloader.fullTunnelVPNActive() } } }
+    }
+    /// A VPN is routing all traffic, which is almost always why YouTube blocks downloads.
+    private(set) var vpnActive = false
     var musicNotAuthorized = false
     var selectedSection: Section = .downloads
 
