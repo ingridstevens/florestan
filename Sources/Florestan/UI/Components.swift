@@ -2,11 +2,12 @@ import AppKit
 import FlorestanCore
 import SwiftUI
 
-/// The link field: sits on the frame gradient as a glass capsule.
+/// The link field: sits on the frame gradient as a glass capsule, and previews what a pasted link points at.
 struct LinkField: View {
     @Environment(AppModel.self) private var model
     @ViewState private var text = ""
     @ViewState private var feedback: String?
+    @ViewState private var preview: LinkPreviewState = .none
     @FocusState private var focused: Bool
     var prefillFromClipboard = true
     var large = false
@@ -22,6 +23,20 @@ struct LinkField: View {
                     .focused($focused)
                     .onSubmit(submit)
                     .onChange(of: text) { feedback = nil }
+                if !text.isEmpty {
+                    Button {
+                        text = ""
+                        focused = true
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: large ? 15 : 13))
+                            .foregroundStyle(.white.opacity(0.7))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Clear")
+                    .accessibilityLabel("Clear link")
+                    .transition(.opacity)
+                }
                 Button(action: submit) {
                     Image(systemName: "arrow.down")
                         .font(.system(size: large ? 14 : 12, weight: .bold))
@@ -48,12 +63,35 @@ struct LinkField: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14)
                     .transition(.opacity)
+            } else if !text.isEmpty {
+                LinkPreviewRow(state: preview)
+                    .padding(.horizontal, 6)
+                    .transition(.opacity)
             }
         }
         .animation(.easeOut(duration: 0.15), value: feedback)
+        .animation(.easeOut(duration: 0.15), value: preview)
+        .task(id: text) { await loadPreview() }
         .onAppear {
             if prefillFromClipboard { prefill() }
             focused = true
+        }
+    }
+
+    private func loadPreview() async {
+        guard let link = Link.parse(text) else {
+            preview = text.isEmpty ? .none : .notALink
+            return
+        }
+        preview = .loading(isPlaylist: link.isPlaylist)
+        try? await Task.sleep(for: .milliseconds(250))
+        if Task.isCancelled { return }
+        let inLibrary: Bool = if case .song(let id) = link { model.isInLibrary(id) } else { false }
+        if let p = await Downloader.preview(of: link.url) {
+            if Task.isCancelled { return }
+            preview = .ready(p, isPlaylist: link.isPlaylist, inLibrary: inLibrary)
+        } else {
+            preview = .unknown(isPlaylist: link.isPlaylist)
         }
     }
 
@@ -75,6 +113,58 @@ struct LinkField: View {
         case .toolsMissing:
             feedback = "Install yt-dlp and ffmpeg first (see below)."
         }
+    }
+}
+
+enum LinkPreviewState: Equatable {
+    case none
+    case notALink
+    case loading(isPlaylist: Bool)
+    case ready(Downloader.Preview, isPlaylist: Bool, inLibrary: Bool)
+    /// A valid link YouTube wouldn't describe (e.g. a YouTube Music album page).
+    case unknown(isPlaylist: Bool)
+}
+
+/// Shows what the pasted link points at, so you can tell links apart before downloading.
+private struct LinkPreviewRow: View {
+    var state: LinkPreviewState
+
+    var body: some View {
+        HStack(spacing: 10) {
+            switch state {
+            case .none:
+                EmptyView()
+            case .notALink:
+                Text("Not a YouTube link").font(.callout).foregroundStyle(.white.opacity(0.85))
+            case .loading(let isPlaylist):
+                ProgressView().controlSize(.small).tint(.white)
+                Text(isPlaylist ? "Looking up playlist…" : "Looking up song…").font(.callout).foregroundStyle(.white.opacity(0.85))
+            case .ready(let p, let isPlaylist, let inLibrary):
+                AsyncImage(url: p.thumbnail) { image in
+                    image.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Rectangle().fill(.white.opacity(0.2))
+                }
+                .frame(width: 34, height: 34)
+                .clipShape(.rect(cornerRadius: 6))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(p.title).font(.callout.weight(.semibold)).lineLimit(1)
+                    Text(detail(p.author, isPlaylist: isPlaylist, inLibrary: inLibrary)).font(.caption).opacity(0.85).lineLimit(1)
+                }
+                .foregroundStyle(.white)
+            case .unknown(let isPlaylist):
+                Image(systemName: isPlaylist ? "music.note.list" : "music.note").foregroundStyle(.white)
+                Text(isPlaylist ? "Playlist" : "Song").font(.callout).foregroundStyle(.white.opacity(0.85))
+            }
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private func detail(_ author: String, isPlaylist: Bool, inLibrary: Bool) -> String {
+        let kind = isPlaylist ? "Playlist" : "Song"
+        let parts = [kind, author.isEmpty ? nil : author, inLibrary ? "Already in your library" : nil].compactMap { $0 }
+        return parts.joined(separator: ", ")
     }
 }
 

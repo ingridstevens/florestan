@@ -118,6 +118,7 @@ struct ActiveJobSummary: View {
 }
 
 struct CompactJobRow: View {
+    @Environment(AppModel.self) private var model
     var job: Job
     var tint: Color
 
@@ -129,14 +130,28 @@ struct CompactJobRow: View {
                 Text(job.summary).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer(minLength: 0)
-            if case .failed = job.phase {
-                Image(systemName: "exclamationmark.circle.fill").foregroundStyle(.orange)
-            } else if job.failedCount > 0 {
-                Image(systemName: "exclamationmark.circle").foregroundStyle(.orange)
+            if needsRetry {
+                Button {
+                    model.retry(job)
+                } label: {
+                    Label("Retry", systemImage: "arrow.clockwise")
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(.orange.opacity(0.15)))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.orange)
+                .help(job.link.isPlaylist ? "Try the failed songs again" : "Try again")
             } else {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(tint)
             }
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
+    }
+
+    private var needsRetry: Bool {
+        if case .failed = job.phase { return true }
+        return job.failedCount > 0
     }
 }

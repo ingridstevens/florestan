@@ -33,6 +33,7 @@ enum MusicLibrary {
                 set name of t to item 2 of argv
                 set artist of t to item 3 of argv
                 set album of t to item 4 of argv
+                if item 5 of argv is not "" then set album artist of t to item 5 of argv
                 set pid to persistent ID of t
                 set loc to ""
                 try
@@ -42,10 +43,24 @@ enum MusicLibrary {
             end tell
         end run
         """
-        let output = try await run(script, [file.path, metadata.title, metadata.artist, metadata.album])
+        let output = try await run(script, [file.path, metadata.title, metadata.artist, metadata.album, metadata.albumArtist ?? ""])
         let lines = output.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
         guard let id = lines.first, !id.isEmpty else { throw MusicError.script("Music didn't return the imported track.") }
         return ImportedTrack(persistentID: id, location: lines.dropFirst().first?.nonEmpty)
+    }
+
+    static func setAlbumInfo(trackID: String, albumArtist: String?, trackNumber: Int?, trackCount: Int?) async throws {
+        let script = """
+        on run argv
+            tell application "Music"
+                set t to first track of library playlist 1 whose persistent ID is (item 1 of argv)
+                if item 2 of argv is not "" then set album artist of t to item 2 of argv
+                if item 3 of argv is not "" then set track number of t to (item 3 of argv) as integer
+                if item 4 of argv is not "" then set track count of t to (item 4 of argv) as integer
+            end tell
+        end run
+        """
+        _ = try await run(script, [trackID, albumArtist ?? "", trackNumber.map(String.init) ?? "", trackCount.map(String.init) ?? ""])
     }
 
     /// Finds the playlist by persistent ID (or creates one named `name`) and appends any of `trackIDs` it doesn't contain yet, in order.
@@ -124,14 +139,32 @@ enum MusicLibrary {
         }
     }
 
+    /// Music answers overlapping `add` requests with "Parameter error (-50)", so every request waits its turn.
+    private static let serial = SerialQueue()
+
     private static func run(_ script: String, _ arguments: [String]) async throws -> String {
         let osascript = URL(fileURLWithPath: "/usr/bin/osascript")
-        let result = try await Shell.run(osascript, ["-e", script] + arguments)
+        let result = try await serial.run { try await Shell.run(osascript, ["-e", script] + arguments) }
         guard result.succeeded else {
             if result.stderr.contains("-1743") { throw MusicError.notAuthorized }
             let message = result.stderr.replacingOccurrences(of: #"^.*execution error: "#, with: "", options: .regularExpression)
             throw MusicError.script(message.trimmingCharacters(in: .whitespacesAndNewlines))
         }
         return result.stdout.trimmingCharacters(in: CharacterSet.newlines)
+    }
+}
+
+/// Runs async operations one at a time, in order.
+actor SerialQueue {
+    private var tail: Task<Void, Never>?
+
+    func run<T: Sendable>(_ operation: @escaping @Sendable () async throws -> T) async throws -> T {
+        let previous = tail
+        let task = Task { () async throws -> T in
+            await previous?.value
+            return try await operation()
+        }
+        tail = Task { _ = try? await task.value }
+        return try await task.value
     }
 }

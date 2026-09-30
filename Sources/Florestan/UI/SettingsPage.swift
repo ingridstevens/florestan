@@ -59,6 +59,8 @@ struct SettingsPage: View {
                         }
                     }
                 }
+
+                SettingGroup("About") { AboutSection() }
             }
             .padding(24)
             .frame(maxWidth: 620, alignment: .leading)
@@ -100,5 +102,29 @@ private struct ThemeSwatch: View {
         .buttonStyle(.plain)
         .accessibilityLabel(theme.name)
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
+/// Where the names come from.
+private struct AboutSection: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Robert Schumann gave the two sides of his personality names. **Florestan** was the fiery, impulsive one; **Eusebius** the dreamy, thoughtful one. They signed his music criticism, argued with each other in his essays as members of the Davidsbündler, an imaginary society he invented to defend new music, and each got a piece of their own in his *Carnaval*. He even signed the dances of his *Davidsbündlertänze* one by one with F. or E.")
+                .fixedSize(horizontal: false, vertical: true)
+            Text("This app is split the same way. Florestan rushes in and grabs the music; Eusebius listens to all of it and sorts it by feel.")
+                .fixedSize(horizontal: false, vertical: true)
+            Text("And the .exe? A Windows program ending on a Mac app. It's a joke.")
+                .foregroundStyle(.secondary)
+            HStack(spacing: 16) {
+                Link("Davidsbündler", destination: URL(string: "https://en.wikipedia.org/wiki/Davidsb%C3%BCndler")!)
+                Link("Robert Schumann", destination: URL(string: "https://en.wikipedia.org/wiki/Robert_Schumann")!)
+                Link("Carnaval", destination: URL(string: "https://en.wikipedia.org/wiki/Carnaval_(Schumann)")!)
+            }
+            .font(.callout)
+            Text("Florestan.exe \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        }
+        .frame(maxWidth: 520, alignment: .leading)
     }
 }

@@ -11,6 +11,7 @@ struct FlorestanApp: App {
             MenuPanel()
                 .environment(delegate.model)
                 .environment(delegate.eusebius)
+                .environment(delegate.recommendations)
         } label: {
             MenuBarLabel(delegate: delegate)
         }
@@ -20,6 +21,7 @@ struct FlorestanApp: App {
             MainWindow()
                 .environment(delegate.model)
                 .environment(delegate.eusebius)
+                .environment(delegate.recommendations)
                 .tint(delegate.model.settings.theme.accent)
         }
         .windowStyle(.hiddenTitleBar)
@@ -45,6 +47,7 @@ private struct MenuBarLabel: View {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = AppModel()
     let eusebius = EusebiusModel()
+    let recommendations = RecommendationsModel()
     private var hotKey: HotKey?
     var windowOpener: (() -> Void)? {
         didSet {

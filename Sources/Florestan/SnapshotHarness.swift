@@ -18,7 +18,7 @@ enum SnapshotHarness {
             try? await Task.sleep(for: .seconds(2))
             for section in Section.allCases {
                 model.selectedSection = section
-                try? await Task.sleep(for: .seconds(1.2))
+                try? await Task.sleep(for: .seconds(section == .forYou ? 15 : 1.2))
                 guard let window = NSApp.windows.first(where: { $0.identifier?.rawValue.contains("main") == true && $0.isVisible }),
                       let view = window.contentView?.superview ?? window.contentView else { continue }
                 if let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {

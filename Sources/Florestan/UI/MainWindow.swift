@@ -1,13 +1,14 @@
 import SwiftUI
 
 enum Section: String, CaseIterable, Identifiable {
-    case downloads, library, eusebius, settings
+    case downloads, forYou, library, eusebius, settings
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .downloads: "Downloads"
+        case .forYou: "For you"
         case .library: "Imported songs"
         case .eusebius: "Eusebius"
         case .settings: "Settings"
@@ -17,6 +18,7 @@ enum Section: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .downloads: "arrow.down.circle"
+        case .forYou: "sparkles"
         case .library: "music.note.list"
         case .eusebius: "moon.stars"
         case .settings: "gearshape"
@@ -65,6 +67,7 @@ struct MainWindow: View {
     @ViewBuilder private var content: some View {
         switch model.selectedSection {
         case .downloads: DownloadsPage()
+        case .forYou: ForYouPage()
         case .library: LibraryPage()
         case .eusebius: EusebiusPage()
         case .settings: SettingsPage()

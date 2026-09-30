@@ -6,7 +6,7 @@ import Testing
     @Test func prefersYouTubeMusicFields() {
         let info = VideoInfo(id: "x", title: "H.O.O.D. (Official Video)", channel: "KneecapVEVO",
                              track: "H.O.O.D.", artists: ["Kneecap"], album: "Fine Art")
-        #expect(TrackMetadata(from: info) == TrackMetadata(title: "H.O.O.D.", artist: "Kneecap", album: "Fine Art"))
+        #expect(TrackMetadata(from: info) == TrackMetadata(title: "H.O.O.D.", artist: "Kneecap", album: "Fine Art", albumArtist: "Kneecap"))
     }
 
     @Test func joinsMultipleArtists() {
@@ -30,10 +30,25 @@ import Testing
 
     @Test func fallsBackToCleanedChannel() {
         let meta = TrackMetadata(from: VideoInfo(id: "x", title: "Träumerei (Official Audio)", channel: "Robert Schumann - Topic"))
-        #expect(meta == TrackMetadata(title: "Träumerei", artist: "Robert Schumann", album: "Träumerei"))
+        #expect(meta == TrackMetadata(title: "Träumerei", artist: "Robert Schumann", album: "Träumerei", albumArtist: "Robert Schumann"))
     }
 
     @Test func stripsVevo() {
         #expect(TrackMetadata.cleanChannel("TaylorSwiftVEVO") == "TaylorSwift")
+    }
+
+    @Test func songsOfOneAlbumShareAlbumArtist() {
+        let second = TrackMetadata(from: VideoInfo(id: "b", title: "t", track: "Verzicht", artists: ["Anne Sofie von Otter", "Barbara Bonney"],
+                                                    album: "Brahms/Schumann Lieder"))
+        #expect(second.albumArtist == "Anne Sofie von Otter")
+        let grouped = second.grouped(albumArtists: ["brahms/schumann lieder": "Barbara Bonney"], albumOrder: ["a", "b"], videoID: "b")
+        #expect(grouped.albumArtist == "Barbara Bonney")
+        #expect(grouped.trackNumber == 2)
+    }
+
+    @Test func retryableFailures() {
+        #expect(YTDLP.Failure.other("HTTP Error 500").isPermanent == false)
+        #expect(YTDLP.Failure.privateVideo.isPermanent)
+        #expect(YTDLP.Failure.botCheck.isPermanent)
     }
 }

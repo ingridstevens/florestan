@@ -45,6 +45,18 @@ _Avoid_: copied playlist
 Florestan's record of every YouTube video it has already imported. A Track already in the Ledger is skipped.
 _Avoid_: history, cache, database
 
+**Recommendation**:
+A YouTube song Florestan proposes because YouTube relates it to songs already imported. Added or turned down one at a time.
+_Avoid_: suggestion (that word belongs to Eusebius), discovery
+
+**Idea**:
+A song Apple Intelligence proposes on this Mac, without going online. Only an artist and title until the user adds it, at which point Florestan looks it up on YouTube.
+_Avoid_: offline recommendation, AI pick
+
+**Album Artist**:
+The one artist all songs of an album share in Apple Music, so they show as one album instead of separate singles, even when each song credits different performers.
+_Avoid_: primary artist
+
 ### Eusebius
 
 **Eusebius**:
@@ -56,5 +68,9 @@ How a song feels to listen to (such as Focus, Late Night, Wind Down), as opposed
 _Avoid_: vibe, category, genre
 
 **Mood Playlist**:
-An Apple Music playlist Eusebius creates for one Mood, drawn from the whole library. Re-running Eusebius updates it in place.
+A playlist of one Mood, drawn from the whole library. Eusebius suggests it; it exists in Apple Music only once the user keeps it.
 _Avoid_: smart playlist, auto playlist
+
+**Kept** / **Turned down**:
+The user's verdict on a suggested Mood Playlist. A kept one is created in Apple Music and updated on every run; a turned-down one is never suggested again unless the user asks.
+_Avoid_: liked/disliked in UI copy, favorite, rejected

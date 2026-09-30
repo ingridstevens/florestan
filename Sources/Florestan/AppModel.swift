@@ -14,6 +14,8 @@ final class AppModel {
 
     private(set) var jobs: [Job] = []
     private(set) var librarySongs: [LedgerEntry] = []
+    /// Album (lowercased) → the album artist its songs share.
+    private var albumArtists: [String: String] = [:]
     private(set) var toolsInstalled = Downloader.toolsInstalled
     private(set) var ytdlpVersion: String?
     /// Set when YouTube asked for a bot check, so the UI can offer the browser-login setting.
@@ -53,7 +55,7 @@ final class AppModel {
             }
             jobs = saved
         }
-        Task { await refreshLibrary(); await refreshTools() }
+        Task { await refreshLibrary(); await refreshTools(); await groupOlderSongs() }
     }
 
     // MARK: - Derived
@@ -79,6 +81,19 @@ final class AppModel {
         return .queued
     }
 
+    /// Queues the same Link again. Songs that already made it are skipped, so only the failed ones are retried.
+    func retry(_ job: Job) {
+        guard job.isFinished, !jobs.contains(where: { $0.link == job.link && !$0.isFinished }) else { return }
+        jobs.removeAll { $0.id == job.id }
+        jobs.append(Job(link: job.link, title: job.title))
+        saveHistory()
+        startRunner()
+    }
+
+    func isInLibrary(_ videoID: String) -> Bool {
+        librarySongs.contains { $0.videoID == videoID }
+    }
+
     func clearHistory() {
         jobs.removeAll(where: \.isFinished)
         saveHistory()
@@ -91,6 +106,9 @@ final class AppModel {
 
     func refreshLibrary() async {
         librarySongs = await ledger.snapshot.songs.values.sorted { $0.importedAt > $1.importedAt }
+        for entry in librarySongs {
+            if let artist = entry.metadata.albumArtist { albumArtists[entry.metadata.album.lowercased()] = artist }
+        }
     }
 
     func refreshTools() async {
@@ -186,6 +204,7 @@ final class AppModel {
         }
 
         if case .playlist(let playlistID, _) = job.link {
+            await numberAlbumTracks(jobID: id)
             await mirrorPlaylist(jobID: id, youtubePlaylistID: playlistID)
         }
         finish(id, failure: nil)
@@ -202,8 +221,9 @@ final class AppModel {
     private func process(_ videoID: String, _ context: TrackContext) async {
         let jobID = context.jobID
         updateTrack(jobID, videoID) { $0.state = .downloading(0) }
-        var retried = false
+        var attempt = 0
         while true {
+            attempt += 1
             do {
                 let downloaded = try await context.downloader.downloadAudio(videoID: videoID, into: downloadsFolder) { progress in
                     Task { @MainActor in
@@ -212,7 +232,12 @@ final class AppModel {
                         }
                     }
                 }
-                let metadata = TrackMetadata(from: downloaded.info)
+                // Songs of one album share an album artist, so Apple Music shows them as one album.
+                var metadata = TrackMetadata(from: downloaded.info).grouped(albumArtists: albumArtists)
+                if albumArtists[metadata.album.lowercased()] == nil, let artist = metadata.albumArtist {
+                    albumArtists[metadata.album.lowercased()] = artist
+                }
+                metadata.trackNumber = nil
                 updateTrack(jobID, videoID) { t in
                     t.state = .importing; t.title = metadata.title; t.artist = metadata.artist
                 }
@@ -227,24 +252,76 @@ final class AppModel {
                 updateTrack(jobID, videoID) { $0.state = .imported }
                 return
             } catch let error as DownloadFailure {
-                if error.failure.shouldUpgradeAndRetry, !retried, !context.upgradedYTDLP {
+                if error.failure.shouldUpgradeAndRetry, !context.upgradedYTDLP {
                     context.upgradedYTDLP = true
-                    retried = true
                     await Downloader.upgradeYTDLP()
+                    continue
+                }
+                if !error.failure.isPermanent, attempt <= Self.retryDelays.count {
+                    await waitBeforeRetry(attempt, jobID, videoID)
                     continue
                 }
                 if error.failure == .botCheck { botCheckHit = true }
                 updateTrack(jobID, videoID) { $0.state = .failed(error.failure.message) }
                 return
             } catch let error as MusicError {
-                if case .notAuthorized = error { musicNotAuthorized = true }
+                if case .notAuthorized = error {
+                    musicNotAuthorized = true
+                } else if attempt <= Self.retryDelays.count {
+                    await waitBeforeRetry(attempt, jobID, videoID)
+                    continue
+                }
                 updateTrack(jobID, videoID) { $0.state = .failed(error.localizedDescription) }
                 return
             } catch {
+                if attempt <= Self.retryDelays.count {
+                    await waitBeforeRetry(attempt, jobID, videoID)
+                    continue
+                }
                 updateTrack(jobID, videoID) { $0.state = .failed(error.localizedDescription) }
                 return
             }
         }
+    }
+
+    /// Most failures that aren't permanent go away on a second try, so each Track gets two automatic retries.
+    private static let retryDelays: [Duration] = [.seconds(3), .seconds(8)]
+
+    private func waitBeforeRetry(_ attempt: Int, _ jobID: UUID, _ videoID: String) async {
+        updateTrack(jobID, videoID) { $0.state = .downloading(0) }
+        try? await Task.sleep(for: Self.retryDelays[attempt - 1])
+    }
+
+    /// Numbers the songs of each album in this playlist in playlist order, so the album plays in sequence.
+    private func numberAlbumTracks(jobID: UUID) async {
+        guard let job = jobs.first(where: { $0.id == jobID }) else { return }
+        var entries: [LedgerEntry] = []
+        for track in job.tracks where track.state == .imported {
+            if let entry = await ledger.entry(for: track.videoID) { entries.append(entry) }
+        }
+        let byAlbum = Dictionary(grouping: entries, by: { $0.metadata.album.lowercased() })
+        for (_, albumEntries) in byAlbum where albumEntries.count > 1 {
+            for (index, var entry) in albumEntries.enumerated() {
+                entry.metadata.trackNumber = index + 1
+                try? await MusicLibrary.setAlbumInfo(trackID: entry.musicTrackID, albumArtist: entry.metadata.albumArtist,
+                                                     trackNumber: index + 1, trackCount: albumEntries.count)
+                try? await ledger.record(entry)
+            }
+        }
+    }
+
+    /// Songs imported before album grouping existed get an album artist now.
+    private func groupOlderSongs() async {
+        for entry in await ledger.snapshot.songs.values where entry.metadata.albumArtist == nil {
+            var updated = entry
+            let lead = entry.metadata.artist.components(separatedBy: ", ").first ?? entry.metadata.artist
+            updated.metadata.albumArtist = albumArtists[entry.metadata.album.lowercased()] ?? lead
+            albumArtists[entry.metadata.album.lowercased()] = updated.metadata.albumArtist
+            guard (try? await MusicLibrary.setAlbumInfo(trackID: entry.musicTrackID, albumArtist: updated.metadata.albumArtist,
+                                                        trackNumber: nil, trackCount: nil)) != nil else { continue }
+            try? await ledger.record(updated)
+        }
+        await refreshLibrary()
     }
 
     private func mirrorPlaylist(jobID: UUID, youtubePlaylistID: String) async {
@@ -276,7 +353,13 @@ final class AppModel {
                 job.phase = .finished
             }
         }
-        if let job = jobs.first(where: { $0.id == id }) { Notifier.jobFinished(job) }
+        if let job = jobs.first(where: { $0.id == id }) {
+            Notifier.jobFinished(job)
+            // Earlier failed attempts of the same link are superseded once this one gets everything in.
+            if job.phase == .finished, job.failedCount == 0 {
+                jobs.removeAll { $0.id != id && $0.link == job.link && $0.isFinished }
+            }
+        }
         saveHistory()
         Task { await refreshLibrary() }
     }

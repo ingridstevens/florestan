@@ -23,26 +23,40 @@ public struct TrackMetadata: Equatable, Sendable, Codable {
     public var title: String
     public var artist: String
     public var album: String
+    /// Apple Music groups songs into one album by album + album artist, so songs of one album must share this.
+    public var albumArtist: String?
+    public var trackNumber: Int?
 
-    public init(title: String, artist: String, album: String) {
+    public init(title: String, artist: String, album: String, albumArtist: String? = nil, trackNumber: Int? = nil) {
         self.title = title; self.artist = artist; self.album = album
+        self.albumArtist = albumArtist; self.trackNumber = trackNumber
     }
 
     /// Prefers YouTube Music's own fields; otherwise parses "Artist - Title" and strips video clutter.
     public init(from info: VideoInfo) {
         let musicArtist = info.artists.flatMap { $0.isEmpty ? nil : $0.joined(separator: ", ") } ?? info.artist
         if let track = info.track?.nonBlank, let artist = musicArtist?.nonBlank {
-            self.init(title: track, artist: artist, album: info.album?.nonBlank ?? track)
+            let leadArtist = info.artists?.first?.nonBlank ?? artist
+            self.init(title: track, artist: artist, album: info.album?.nonBlank ?? track, albumArtist: leadArtist)
             return
         }
 
         let cleaned = Self.stripClutter(info.title)
         if let (artist, title) = Self.splitArtistTitle(cleaned) {
-            self.init(title: title, artist: artist, album: title)
+            self.init(title: title, artist: artist, album: title, albumArtist: artist)
         } else {
-            let channel = Self.cleanChannel(info.channel ?? info.uploader ?? "")
-            self.init(title: cleaned, artist: channel.nonBlank ?? "Unknown Artist", album: cleaned)
+            let channel = Self.cleanChannel(info.channel ?? info.uploader ?? "").nonBlank ?? "Unknown Artist"
+            self.init(title: cleaned, artist: channel, album: cleaned, albumArtist: channel)
         }
+    }
+
+    /// Groups songs of the same album: every song on an album gets the album artist already chosen for it,
+    /// and songs in `albumOrder` (a playlist's album tracks, in order) get track numbers.
+    public func grouped(albumArtists: [String: String], albumOrder: [String] = [], videoID: String? = nil) -> TrackMetadata {
+        var copy = self
+        if let known = albumArtists[album.lowercased()] { copy.albumArtist = known }
+        if let videoID, let index = albumOrder.firstIndex(of: videoID) { copy.trackNumber = index + 1 }
+        return copy
     }
 
     // MARK: - Rules

@@ -10,11 +10,11 @@ struct EusebiusPage: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Playlists by feel")
                         .font(.system(size: 30, weight: .light, design: .serif))
-                    Text("Eusebius listens through your whole Apple Music library and sorts songs by how they feel, not by genre. It runs entirely on this Mac.")
+                    Text("Eusebius listens through your whole Apple Music library and sorts songs by how they feel, not by genre. Keep the playlists you like; they stay up to date. It runs entirely on this Mac.")
                         .font(.system(size: 14, design: .serif))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: 480, alignment: .leading)
+                        .frame(maxWidth: 500, alignment: .leading)
                 }
 
                 if let reason = eusebius.unavailableReason {
@@ -29,7 +29,7 @@ struct EusebiusPage: View {
             .foregroundStyle(Eusebius.ink)
             .padding(.horizontal, 44)
             .padding(.vertical, 40)
-            .frame(maxWidth: 680, alignment: .leading)
+            .frame(maxWidth: 700, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .tint(Eusebius.accent)
@@ -41,27 +41,40 @@ struct EusebiusPage: View {
     @ViewBuilder private var content: some View {
         switch eusebius.phase {
         case .idle:
-            QuietButton("Suggest playlists") { eusebius.suggest() }
+            ListenButtons()
         case .readingLibrary:
             Working(text: "Reading your library…", progress: nil) { eusebius.cancel() }
         case .listening(let done, let total):
             Working(text: "Listening… \(done) of \(total) songs", progress: total == 0 ? nil : Double(done) / Double(total)) {
                 eusebius.cancel()
             }
-        case .suggestions, .creating:
-            SuggestionList()
-        case .created(let count):
-            VStack(alignment: .leading, spacing: 14) {
-                Text(count == 1 ? "1 playlist is waiting in Apple Music." : "\(count) playlists are waiting in Apple Music.")
-                    .font(.system(size: 17, design: .serif))
-                Text("Run it again later. Eusebius only listens to songs it hasn't heard yet, and updates these playlists in place.")
-                    .font(.system(size: 13, design: .serif)).foregroundStyle(.secondary)
-                QuietButton("Suggest again") { eusebius.suggest() }
+        case .ready:
+            VStack(alignment: .leading, spacing: 26) {
+                SuggestionList()
+                ListenButtons()
             }
         case .failed(let why):
             VStack(alignment: .leading, spacing: 14) {
                 Text(why).font(.system(size: 14, design: .serif))
-                QuietButton("Try again") { eusebius.suggest() }
+                ListenButtons()
+            }
+        }
+    }
+}
+
+/// "Listen for new songs" and "Re-analyze everything".
+private struct ListenButtons: View {
+    @Environment(EusebiusModel.self) private var eusebius
+
+    var body: some View {
+        HStack(spacing: 12) {
+            if eusebius.hasListenedBefore {
+                QuietButton("Listen for new songs", prominent: true) { eusebius.listen() }
+                    .help("Only songs Eusebius hasn't heard yet")
+                QuietButton("Re-analyze everything") { eusebius.listen(everything: true) }
+                    .help("Forget earlier judgments and listen to the whole library again")
+            } else {
+                QuietButton("Suggest playlists", prominent: true) { eusebius.listen() }
             }
         }
     }
@@ -69,57 +82,80 @@ struct EusebiusPage: View {
 
 private struct SuggestionList: View {
     @Environment(EusebiusModel.self) private var eusebius
+    @ViewState private var showHidden = false
 
     var body: some View {
-        @Bindable var eusebius = eusebius
-        let selectedCount = eusebius.suggestions.count(where: \.selected)
         VStack(alignment: .leading, spacing: 4) {
-            ForEach($eusebius.suggestions) { $suggestion in
-                SuggestionRow(suggestion: $suggestion)
+            ForEach(eusebius.visibleSuggestions) { suggestion in
+                SuggestionRow(suggestion: suggestion)
                 Divider().opacity(0.5)
             }
-            HStack(spacing: 16) {
-                QuietButton(selectedCount == 1 ? "Create 1 playlist" : "Create \(selectedCount) playlists", prominent: true) {
-                    eusebius.createSelected()
+            if let error = eusebius.lastError {
+                Text(error).font(.system(size: 12.5, design: .serif)).foregroundStyle(.orange).padding(.top, 8)
+            }
+            if !eusebius.hiddenMoods.isEmpty {
+                Button(showHidden ? "Hide the playlists you turned down" : "\(eusebius.hiddenMoods.count) turned down. Show") {
+                    withAnimation(.easeInOut(duration: 0.25)) { showHidden.toggle() }
                 }
-                .disabled(selectedCount == 0 || eusebius.phase == .creating)
-                if eusebius.phase == .creating {
-                    ProgressView().controlSize(.small)
+                .buttonStyle(.plain)
+                .font(.system(size: 12.5, design: .serif).italic())
+                .foregroundStyle(.secondary)
+                .padding(.top, 10)
+                if showHidden {
+                    ForEach(eusebius.hiddenMoods, id: \.self) { mood in
+                        HStack(spacing: 10) {
+                            Image(systemName: mood.symbol).frame(width: 20).foregroundStyle(.tertiary)
+                            Text(mood.playlistName).font(.system(size: 14, design: .serif)).foregroundStyle(.secondary)
+                            Button("Suggest again") { eusebius.clearFeedback(mood) }
+                                .buttonStyle(.plain)
+                                .font(.system(size: 12, design: .serif))
+                                .foregroundStyle(Eusebius.accent)
+                        }
+                    }
                 }
             }
-            .padding(.top, 18)
         }
     }
 }
 
 private struct SuggestionRow: View {
-    @Binding var suggestion: MoodSuggestion
+    @Environment(EusebiusModel.self) private var eusebius
+    var suggestion: MoodSuggestion
     @ViewState private var expanded = false
+
+    private var liked: Bool { eusebius.feedback[suggestion.mood] == .liked }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 14) {
-                Toggle("", isOn: $suggestion.selected)
-                    .toggleStyle(.checkbox)
-                    .labelsHidden()
-                    .accessibilityLabel("Create \(suggestion.mood.playlistName)")
                 Image(systemName: suggestion.mood.symbol)
                     .frame(width: 20)
                     .foregroundStyle(Eusebius.accent)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(suggestion.mood.playlistName)
                         .font(.system(size: 17, weight: .regular, design: .serif))
-                    Text("\(suggestion.tracks.count) songs. \(suggestion.mood.blurb)")
+                    Text(status)
                         .font(.system(size: 12.5, design: .serif))
                         .foregroundStyle(.secondary)
+                    Button(expanded ? "Hide songs" : "Show songs") {
+                        withAnimation(.easeInOut(duration: 0.25)) { expanded.toggle() }
+                    }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 12, design: .serif))
+                    .foregroundStyle(Eusebius.accent)
+                    .padding(.top, 2)
                 }
                 Spacer()
-                Button(expanded ? "Hide songs" : "Show songs") {
-                    withAnimation(.easeInOut(duration: 0.25)) { expanded.toggle() }
+                if eusebius.syncing.contains(suggestion.mood) {
+                    ProgressView().controlSize(.small)
                 }
-                .buttonStyle(.plain)
-                .font(.system(size: 12, design: .serif))
-                .foregroundStyle(Eusebius.accent)
+                FeedbackButton(symbol: liked ? "hand.thumbsup.fill" : "hand.thumbsup", active: liked,
+                               help: liked ? "Kept in Apple Music" : "Keep this playlist in Apple Music") {
+                    eusebius.like(suggestion)
+                }
+                FeedbackButton(symbol: "hand.thumbsdown", active: false, help: "Don't suggest this playlist again") {
+                    withAnimation(.easeInOut(duration: 0.3)) { eusebius.dislike(suggestion) }
+                }
             }
             if expanded {
                 VStack(alignment: .leading, spacing: 3) {
@@ -135,10 +171,36 @@ private struct SuggestionRow: View {
                             .foregroundStyle(.tertiary)
                     }
                 }
-                .padding(.leading, 70)
+                .padding(.leading, 34)
             }
         }
         .padding(.vertical, 10)
+    }
+
+    private var status: String {
+        let count = "\(suggestion.tracks.count) songs."
+        if liked { return "\(count) In Apple Music as “\(suggestion.playlistName)”, kept up to date." }
+        return "\(count) \(suggestion.mood.blurb)"
+    }
+}
+
+private struct FeedbackButton: View {
+    var symbol: String
+    var active: Bool
+    var help: String
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 14))
+                .frame(width: 32, height: 32)
+                .foregroundStyle(active ? .white : Eusebius.ink)
+                .background(Circle().fill(active ? Eusebius.accent : Eusebius.accent.opacity(0.1)))
+        }
+        .buttonStyle(.plain)
+        .help(help)
+        .accessibilityLabel(help)
     }
 }
 

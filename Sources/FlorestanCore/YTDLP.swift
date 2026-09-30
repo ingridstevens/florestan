@@ -7,6 +7,10 @@ public enum YTDLP {
         public struct Entry: Decodable, Sendable {
             public var id: String
             public var title: String?
+            public var channel: String?
+            public var uploader: String?
+            /// Seconds.
+            public var duration: Double?
         }
         public var id: String?
         public var title: String?
@@ -61,6 +65,14 @@ public enum YTDLP {
             case .browserLoginUnreadable: "Couldn't read your browser's YouTube login. Make sure you're signed in to YouTube there, and allow Keychain access when macOS asks."
             case .extractorBroken(let detail): "YouTube changed something yt-dlp relies on: \(detail)"
             case .other(let detail): detail
+            }
+        }
+
+        /// Failures that retrying can't fix.
+        public var isPermanent: Bool {
+            switch self {
+            case .ageRestricted, .privateVideo, .membersOnly, .unavailable, .botCheck, .safariNeedsFullDiskAccess, .browserLoginUnreadable: true
+            case .extractorBroken, .other: false
             }
         }
 
