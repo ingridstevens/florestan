@@ -16,6 +16,13 @@ if [[ ! -f build/AppIcon.icns ]]; then
 fi
 cp build/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
+# Standalone tools, so the app runs on Macs without Homebrew (./scripts/fetch-tools.sh downloads them).
+if [[ -f Support/Tools/VERSIONS ]]; then
+    cp -R Support/Tools "$APP/Contents/Resources/Tools"
+else
+    echo "No bundled tools (run ./scripts/fetch-tools.sh); this build needs Homebrew's yt-dlp and ffmpeg."
+fi
+
 # Sign with the local certificate if it's set up (./scripts/setup-signing.sh), so macOS keeps Florestan's
 # permissions across builds. Otherwise sign ad hoc, which notifications and the Music prompt still need.
 IDENTITY="Florestan Local Signing"

@@ -41,7 +41,7 @@ final class AppModel {
     private var currentJob: (id: UUID, task: Task<Void, Never>)?
     private var matcherCache: (matcher: LibraryMatcher, songCount: Int, builtAt: Date)?
 
-    static let supportFolder: URL = {
+    nonisolated static let supportFolder: URL = {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return base.appendingPathComponent("Florestan", isDirectory: true)
     }()
@@ -49,6 +49,8 @@ final class AppModel {
     init() {
         let support = Self.supportFolder
         try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        ToolInstaller.installBundledTools()
+        toolsInstalled = Downloader.toolsInstalled
         ledger = LedgerStore(fileURL: support.appendingPathComponent("ledger.json"))
         historyURL = support.appendingPathComponent("history.json")
         downloadsFolder = FileManager.default.urls(for: .musicDirectory, in: .userDomainMask)[0]

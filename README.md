@@ -5,13 +5,24 @@ Eusebius, its calm other half, sorts your whole library into mood playlists usin
 
 ## Build
 
-Needs only the Xcode Command Line Tools and Homebrew:
+Needs only the Xcode Command Line Tools:
 
 ```sh
-brew install yt-dlp ffmpeg
+./scripts/fetch-tools.sh      # once: downloads yt-dlp, deno and ffmpeg to carry inside the app
 ./scripts/build-app.sh        # builds and installs ~/Applications/Florestan.exe.app
 ./scripts/test.sh             # core logic tests
+./scripts/setup-signing.sh    # once: a local signing certificate, so permissions survive rebuilds
 ```
+
+## Install on another Mac
+
+```sh
+./scripts/make-dmg.sh         # creates build/Florestan.exe.dmg
+```
+
+Copy the `.dmg` over (AirDrop works), open it, and drag Florestan.exe into Applications. `Read Me First.txt`
+inside explains the one-time "Open Anyway" step: the app isn't notarized by Apple, so macOS asks once.
+Requires Apple Silicon and macOS 26. Homebrew isn't needed; the app brings its own tools and keeps yt-dlp updated.
 
 ## Use
 
@@ -21,7 +32,6 @@ brew install yt-dlp ffmpeg
 
 Notes:
 - The first import asks for permission to control Music.
-- Rebuilding changes the app's ad-hoc signature, so macOS may ask for permissions again.
 - If YouTube shows a bot check, your network is blocked (VPNs and data-center IPs often are). Switch networks or turn on "Use my YouTube login" in Settings.
 - Eusebius needs Apple Intelligence turned on.
 

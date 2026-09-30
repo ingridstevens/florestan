@@ -36,9 +36,14 @@ struct Downloader: Sendable {
         return result?.stdout.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty
     }
 
-    /// `brew upgrade yt-dlp`. Returns true if it ran without error.
+    /// Updates yt-dlp: its own `-U` for the copy Florestan carries, `brew upgrade` for a Homebrew one.
+    /// Returns true if it ran without error.
     @discardableResult
     static func upgradeYTDLP() async -> Bool {
+        if ToolInstaller.usesBundledYTDLP, let ytdlp {
+            let result = try? await Shell.run(ytdlp, ["-U"])
+            return result?.succeeded ?? false
+        }
         guard let brew else { return false }
         let result = try? await Shell.run(brew, ["upgrade", "yt-dlp"])
         return result?.succeeded ?? false

@@ -9,7 +9,8 @@ enum Shell {
         var succeeded: Bool { status == 0 }
     }
 
-    static let searchPaths = ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"]
+    /// Florestan's own tools first (see ToolInstaller), then Homebrew's.
+    static let searchPaths = [ToolInstaller.binFolder.path, "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"]
 
     static func locate(_ tool: String) -> URL? {
         searchPaths.lazy
