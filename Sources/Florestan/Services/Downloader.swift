@@ -117,6 +117,27 @@ struct Downloader: Sendable {
         return (try? YTDLP.parsePlaylist(Data(result.stdout.utf8)))?.entries.first?.id
     }
 
+    enum MusicSearchKind: String { case songs, albums }
+
+    /// Searches YouTube Music, which knows albums and track lists that plain YouTube videos lack.
+    func musicSearch(_ query: String, kind: MusicSearchKind, limit: Int = 3) async throws -> [YTDLP.FlatPlaylist.Entry] {
+        var c = URLComponents(string: "https://music.youtube.com/search")!
+        c.queryItems = [.init(name: "q", value: query)]
+        c.fragment = kind.rawValue
+        let link = Link.playlist(id: "search", url: c.url!)
+        return try await fetchPlaylist(link, limit: limit).entries
+    }
+
+    /// A video's details without downloading it.
+    func videoInfo(videoID: String) async throws -> VideoInfo {
+        guard let ytdlp = Self.ytdlp else { throw DownloadFailure(failure: .other("yt-dlp isn't installed")) }
+        let result = try await runYTDLP(ytdlp, ["--skip-download", "-j", "https://music.youtube.com/watch?v=\(videoID)"])
+        guard result.succeeded, let info = try? JSONDecoder().decode(VideoInfo.self, from: Data(result.stdout.utf8)) else {
+            throw DownloadFailure(failure: YTDLP.classify(stderr: result.stderr))
+        }
+        return info
+    }
+
     struct Downloaded {
         var file: URL
         var info: VideoInfo

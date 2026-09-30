@@ -30,6 +30,9 @@ struct SettingsPage: View {
                 }
 
                 SettingGroup("YouTube") {
+                    Toggle("Put new songs from YouTube videos onto their albums", isOn: $settings.tidyNewSongs)
+                    Text("Looks up the album on YouTube Music after each download. Imported songs › Tidy albums does the same for older songs.")
+                        .font(.caption).foregroundStyle(.secondary)
                     Toggle("Update yt-dlp automatically", isOn: $settings.keepYTDLPUpdated)
                     Text("Checks once a day. YouTube changes often, and older versions of yt-dlp stop working.")
                         .font(.caption).foregroundStyle(.secondary)

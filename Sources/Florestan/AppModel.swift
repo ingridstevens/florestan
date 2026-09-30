@@ -28,6 +28,11 @@ final class AppModel {
     var selectedSection: Section = .downloads
 
     var settings: Settings
+    /// Files newly downloaded songs onto their albums in the background.
+    let autoTidier = TidyAlbumsModel()
+
+    /// yt-dlp with the user's current login settings.
+    var downloader: Downloader { Downloader(cookieBrowser: settings.useBrowserLogin ? settings.cookieBrowser : nil) }
 
     let ledger: LedgerStore
     private let historyURL: URL
@@ -557,6 +562,13 @@ final class AppModel {
         }
         if let job = jobs.first(where: { $0.id == id }) {
             Notifier.jobFinished(job)
+            let imported = Set(job.tracks.filter { $0.state == .imported }.map(\.videoID))
+            if settings.tidyNewSongs {
+                Task {
+                    await refreshLibrary()
+                    autoTidier.autoTidy(imported, using: self)
+                }
+            }
             // Earlier failed attempts of the same link are superseded once this one gets everything in.
             if job.phase == .finished, job.failedCount == 0 {
                 jobs.removeAll { $0.id != id && $0.link == job.link && $0.isFinished }

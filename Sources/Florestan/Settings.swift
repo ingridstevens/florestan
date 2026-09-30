@@ -19,6 +19,10 @@ final class Settings {
     var cookieBrowser: CookieBrowser {
         didSet { defaults.set(cookieBrowser.rawValue, forKey: "cookieBrowser") }
     }
+    /// Look up the album of songs from plain YouTube videos right after they download.
+    var tidyNewSongs: Bool {
+        didSet { defaults.set(tidyNewSongs, forKey: "tidyNewSongs") }
+    }
 
     var launchAtLogin: Bool {
         get { SMAppService.mainApp.status == .enabled }
@@ -35,6 +39,7 @@ final class Settings {
         keepYTDLPUpdated = defaults.object(forKey: "keepYTDLPUpdated") as? Bool ?? true
         useBrowserLogin = defaults.bool(forKey: "useBrowserLogin")
         cookieBrowser = CookieBrowser(rawValue: defaults.string(forKey: "cookieBrowser") ?? "") ?? .safari
+        tidyNewSongs = defaults.object(forKey: "tidyNewSongs") as? Bool ?? true
     }
 
     var ytdlpUpgradeDue: Bool {

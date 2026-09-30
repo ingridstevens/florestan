@@ -76,6 +76,39 @@ enum MusicLibrary {
         _ = try await run(script, [trackID])
     }
 
+    static func setAlbum(trackID: String, album: String, albumArtist: String, trackNumber: Int?, trackCount: Int?) async throws {
+        let script = """
+        on run argv
+            tell application "Music"
+                set t to first track of library playlist 1 whose persistent ID is (item 1 of argv)
+                set album of t to item 2 of argv
+                set album artist of t to item 3 of argv
+                if item 4 of argv is not "" then set track number of t to (item 4 of argv) as integer
+                if item 5 of argv is not "" then set track count of t to (item 5 of argv) as integer
+            end tell
+        end run
+        """
+        _ = try await run(script, [trackID, album, albumArtist, trackNumber.map(String.init) ?? "", trackCount.map(String.init) ?? ""])
+    }
+
+    /// Deletes a track from the library and returns where its file was, so the caller can move it to the Trash.
+    static func deleteTrack(trackID: String) async throws -> String? {
+        let script = """
+        on run argv
+            tell application "Music"
+                set t to first track of library playlist 1 whose persistent ID is (item 1 of argv)
+                set loc to ""
+                try
+                    set loc to POSIX path of (get location of t)
+                end try
+                delete t
+                return loc
+            end tell
+        end run
+        """
+        return try await run(script, [trackID]).trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty
+    }
+
     /// Opens Music on the playlist.
     static func revealPlaylist(id: String) async throws {
         let script = """

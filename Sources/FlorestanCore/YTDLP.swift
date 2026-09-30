@@ -11,6 +11,7 @@ public enum YTDLP {
             public var uploader: String?
             /// Seconds.
             public var duration: Double?
+            public var url: String?
         }
         public var id: String?
         public var title: String?

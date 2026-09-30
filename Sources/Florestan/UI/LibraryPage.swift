@@ -5,6 +5,7 @@ import SwiftUI
 struct LibraryPage: View {
     @Environment(AppModel.self) private var model
     @ViewState private var search = ""
+    @ViewState private var tidying = false
 
     private var songs: [LedgerEntry] {
         guard !search.isEmpty else { return model.librarySongs }
@@ -17,9 +18,18 @@ struct LibraryPage: View {
         VStack(alignment: .leading, spacing: 16) {
             PageHeader(title: "Imported songs",
                        subtitle: "Florestan skips these next time. Forget a song to download it again.") {
-                TextField("Search", text: $search)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 180)
+                HStack {
+                    Button {
+                        tidying = true
+                    } label: {
+                        Label("Tidy albums", systemImage: "square.stack")
+                    }
+                    .disabled(model.librarySongs.isEmpty)
+                    .help("Put songs from YouTube videos onto their albums, and find duplicates")
+                    TextField("Search", text: $search)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 180)
+                }
             }
             .padding([.horizontal, .top], 24)
 
@@ -36,6 +46,7 @@ struct LibraryPage: View {
                 .scrollContentBackground(.hidden)
             }
         }
+        .sheet(isPresented: $tidying) { TidyAlbumsSheet() }
     }
 }
 
