@@ -7,6 +7,7 @@ struct TidyAlbumsSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ViewState private var tidy = TidyAlbumsModel()
     @ViewState private var confirmRemoval: (copy: LedgerEntry, kept: LedgerEntry)?
+    @ViewState private var vpnActive = false
 
     private var tint: Color { model.settings.theme.accent }
 
@@ -19,6 +20,14 @@ struct TidyAlbumsSheet: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(20)
+            if vpnActive {
+                Label("A VPN is on. YouTube blocks lookups through most VPNs, so albums may not be found. Turn it off, then open Tidy albums again.",
+                      systemImage: "hand.raised")
+                    .font(.callout)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.orange.opacity(0.1))
+            }
             Divider()
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -27,6 +36,7 @@ struct TidyAlbumsSheet: View {
         }
         .frame(width: 620, height: 560)
         .onAppear { if tidy.phase == .idle { tidy.scan(using: model) } }
+        .task { vpnActive = await Downloader.fullTunnelVPNActive() }
         .confirmationDialog("Remove this copy of “\(confirmRemoval?.copy.metadata.title ?? "")”?",
                             isPresented: Binding(get: { confirmRemoval != nil }, set: { if !$0 { confirmRemoval = nil } }),
                             presenting: confirmRemoval) { pair in
