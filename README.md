@@ -36,3 +36,7 @@ Notes:
 - Eusebius needs Apple Intelligence turned on.
 
 See `CONTEXT.md` for the vocabulary used in the code.
+
+## License
+
+Public domain (the Unlicense), see `LICENSE`. Do whatever you like with it; no credit needed.
