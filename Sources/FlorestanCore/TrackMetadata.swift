@@ -27,9 +27,14 @@ public struct TrackMetadata: Equatable, Sendable, Codable {
     public var albumArtist: String?
     public var trackNumber: Int?
 
+    /// Text is stored precomposed ("è" as one character): YouTube sometimes sends "e" plus a combining accent,
+    /// which looks the same but makes Apple Music split one artist or album into two.
     public init(title: String, artist: String, album: String, albumArtist: String? = nil, trackNumber: Int? = nil) {
-        self.title = title; self.artist = artist; self.album = album
-        self.albumArtist = albumArtist; self.trackNumber = trackNumber
+        self.title = title.precomposedStringWithCanonicalMapping
+        self.artist = artist.precomposedStringWithCanonicalMapping
+        self.album = album.precomposedStringWithCanonicalMapping
+        self.albumArtist = albumArtist?.precomposedStringWithCanonicalMapping
+        self.trackNumber = trackNumber
     }
 
     /// Prefers YouTube Music's own fields; otherwise parses "Artist - Title" and strips video clutter.

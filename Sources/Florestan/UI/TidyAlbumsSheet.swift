@@ -68,6 +68,9 @@ struct TidyAlbumsSheet: View {
                 if !tidy.renumbered.isEmpty {
                     Text("Also put \(tidy.renumbered.count) songs in album order.").foregroundStyle(.secondary)
                 }
+                if tidy.matchedSongs > 0 {
+                    Text("Gave \(tidy.matchedSongs) songs their album's artist, year and cover.").foregroundStyle(.secondary)
+                }
                 if let error = tidy.lastError { Text(error).foregroundStyle(.orange) }
             }
             .padding(20)
@@ -77,7 +80,7 @@ struct TidyAlbumsSheet: View {
     private var reviewList: some View {
         @Bindable var tidy = tidy
         return List {
-            if tidy.proposals.isEmpty && tidy.duplicates.isEmpty {
+            if tidy.proposals.isEmpty && tidy.duplicates.isEmpty && tidy.mismatchedAlbums.isEmpty {
                 Text(tidy.notFound.isEmpty ? "Everything is already on an album." : "YouTube Music didn't know the albums of these songs.")
                     .foregroundStyle(.secondary)
             }
@@ -92,6 +95,18 @@ struct TidyAlbumsSheet: View {
                             }
                         }
                         .toggleStyle(.checkbox)
+                    }
+                }
+            }
+            if !tidy.mismatchedAlbums.isEmpty {
+                SwiftUI.Section("Make albums match") {
+                    ForEach(tidy.mismatchedAlbums, id: \.album) { item in
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(item.album)
+                            Text(item.songs == 1 ? "1 song gets the album's artist, year or square cover, so Apple Music shows the album once."
+                                                 : "\(item.songs) songs get the album's artist, year or square cover, so Apple Music shows the album once.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
                     }
                 }
             }
@@ -135,11 +150,11 @@ struct TidyAlbumsSheet: View {
                 Button("Cancel") { dismiss() }
                     .keyboardShortcut(.cancelAction)
                 let count = tidy.proposals.count(where: \.selected)
-                Button(count == 1 ? "Move 1 song" : "Move \(count) songs") { tidy.apply(using: model) }
+                Button(count == 0 ? "Tidy" : count == 1 ? "Move 1 song" : "Move \(count) songs") { tidy.apply(using: model) }
                     .buttonStyle(.borderedProminent)
                     .tint(tint)
                     .keyboardShortcut(.defaultAction)
-                    .disabled(tidy.phase == .applying || (count == 0 && tidy.renumbered.isEmpty))
+                    .disabled(tidy.phase == .applying || (count == 0 && tidy.renumbered.isEmpty && tidy.mismatchedAlbums.isEmpty))
             case .done:
                 Button("Done") { dismiss() }
                     .buttonStyle(.borderedProminent)

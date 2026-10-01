@@ -46,4 +46,51 @@ import Testing
         #expect(groups.count == 1)
         #expect(groups[0].map(\.videoID) == ["v2", "v1"])
     }
+
+    @Test func refusesATrackListFromAnotherEdition() {
+        let suiteOnly = ["Oui ou non", "Perdus", "Insomnies", "Tu me regardes", "Que du love", "Victime des réseaux", "Nombreux", "Ta reine"]
+        #expect(!AlbumTidy.listingCoversAlbum(albumTracks: suiteOnly, songTitles: ["La Thune", "Perdus", "Nombreux"]))
+        #expect(AlbumTidy.listingCoversAlbum(albumTracks: suiteOnly, songTitles: ["Perdus", "Nombreux"]))
+    }
+
+    @Test func storesAccentsOneWay() {
+        let decomposed = "Ange\u{300}le"
+        let metadata = TrackMetadata(title: "Libre", artist: decomposed, album: "Nonante-Cinq", albumArtist: decomposed)
+        #expect(metadata.albumArtist!.unicodeScalars.count == 6)
+        #expect(metadata.artist == "Angèle")
+    }
+
+    private func track(_ id: String, _ title: String, album: String = "Brol", artist: String = "Angèle", year: Int = 2018,
+                       cover: (Int, Int, String)? = (720, 720, "brol")) -> AlbumTidy.AlbumTrack {
+        AlbumTidy.AlbumTrack(id: id, title: title, album: album, albumArtist: artist, year: year,
+                             cover: cover.map { .init(width: $0.0, height: $0.1, fingerprint: $0.2) })
+    }
+
+    @Test func makesAnAlbumAgreeOnArtistYearAndCover() {
+        let fixes = AlbumTidy.consistencyFixes([
+            track("a", "La Thune"),
+            track("b", "Jalousie", year: 2017),
+            track("c", "Flemme", artist: "Ange\u{300}le", cover: (1280, 720, "video still")),
+            track("d", "Perdus", album: "Perdus", year: 2019, cover: (720, 720, "single")),
+        ])
+        #expect(fixes == [
+            .init(trackID: "b", album: "Brol", albumArtist: nil, year: 2018, coverFrom: nil),
+            .init(trackID: "c", album: "Brol", albumArtist: "Angèle", year: nil, coverFrom: "a"),
+        ])
+    }
+
+    @Test func prefersASquareCoverEvenWhenMostAreWide() {
+        let fixes = AlbumTidy.consistencyFixes([
+            track("a", "Flip", album: "Zaba", cover: (1280, 720, "wide")),
+            track("b", "Gooey", album: "Zaba", cover: (1280, 720, "wide")),
+            track("c", "Toes", album: "Zaba", cover: (600, 600, "square")),
+        ])
+        #expect(fixes.map(\.coverFrom) == ["c", "c"])
+    }
+
+    @Test func leavesSinglesAndTidyAlbumsAlone() {
+        #expect(AlbumTidy.consistencyFixes([track("a", "La Thune"), track("b", "Jalousie")]).isEmpty)
+        #expect(AlbumTidy.consistencyFixes([track("a", "Jalousie", album: "Jalousie"),
+                                            track("b", "Perdus", album: "Perdus", year: 2019)]).isEmpty)
+    }
 }

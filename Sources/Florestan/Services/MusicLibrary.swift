@@ -1,4 +1,6 @@
+import CryptoKit
 import Foundation
+import ImageIO
 import FlorestanCore
 
 enum MusicError: Error, LocalizedError {
@@ -61,6 +63,78 @@ enum MusicLibrary {
         end run
         """
         _ = try await run(script, [trackID, albumArtist ?? "", trackNumber.map(String.init) ?? "", trackCount.map(String.init) ?? ""])
+    }
+
+    /// The album details of these tracks as Music has them now, with each cover measured. Tracks no longer in Music are left out.
+    static func albumTracks(ids: [String]) async throws -> [AlbumTidy.AlbumTrack] {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("florestan-covers-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let script = """
+        on run argv
+            set us to (ASCII character 31)
+            set rs to (ASCII character 30)
+            set coverDir to item 1 of argv
+            set out to {}
+            tell application "Music"
+                repeat with i from 2 to count of argv
+                    set tid to item i of argv
+                    try
+                        set t to first track of library playlist 1 whose persistent ID is tid
+                        set hasCover to "0"
+                        try
+                            set d to raw data of artwork 1 of t
+                            set fh to open for access (POSIX file (coverDir & "/" & tid)) with write permission
+                            set eof fh to 0
+                            write d to fh
+                            close access fh
+                            set hasCover to "1"
+                        end try
+                        set end of out to tid & us & (name of t) & us & (album of t) & us & (album artist of t) & us & (year of t) & us & hasCover
+                    end try
+                end repeat
+            end tell
+            set AppleScript's text item delimiters to rs
+            return out as text
+        end run
+        """
+        guard !ids.isEmpty else { return [] }
+        let output = try await run(script, [folder.path] + ids)
+        return output.split(separator: "\u{1E}").compactMap { record in
+            let f = record.split(separator: "\u{1F}", omittingEmptySubsequences: false).map(String.init)
+            guard f.count == 6 else { return nil }
+            let id = f[0].trimmingCharacters(in: .whitespacesAndNewlines)
+            let cover = f[5] == "1" ? measureCover(folder.appendingPathComponent(id)) : nil
+            return AlbumTidy.AlbumTrack(id: id, title: f[1], album: f[2], albumArtist: f[3], year: Int(f[4]) ?? 0, cover: cover)
+        }
+    }
+
+    private static func measureCover(_ file: URL) -> AlbumTidy.AlbumTrack.Cover? {
+        guard let data = try? Data(contentsOf: file),
+              let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? Int,
+              let height = properties[kCGImagePropertyPixelHeight] as? Int else { return nil }
+        let fingerprint = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        return .init(width: width, height: height, fingerprint: fingerprint)
+    }
+
+    /// Applies one song's share of making its album match: album artist, year, and the cover of another song.
+    static func apply(_ fix: AlbumTidy.AlbumFix) async throws {
+        let script = """
+        on run argv
+            tell application "Music"
+                set t to first track of library playlist 1 whose persistent ID is (item 1 of argv)
+                if item 2 of argv is not "" then set album artist of t to item 2 of argv
+                if item 3 of argv is not "" then set year of t to (item 3 of argv) as integer
+                if item 4 of argv is not "" then
+                    set src to first track of library playlist 1 whose persistent ID is (item 4 of argv)
+                    set data of artwork 1 of t to (raw data of artwork 1 of src)
+                end if
+            end tell
+        end run
+        """
+        _ = try await run(script, [fix.trackID, fix.albumArtist ?? "", fix.year.map(String.init) ?? "", fix.coverFrom ?? ""])
     }
 
     /// Opens Music with the track selected.
