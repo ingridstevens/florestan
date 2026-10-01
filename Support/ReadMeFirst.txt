@@ -3,6 +3,10 @@ Florestan.exe
 
 Paste a YouTube or YouTube Music link, and the song or whole playlist lands in Apple Music.
 
+Your responsibility
+- Only download content you own or have the rights to download. Downloading other content may break
+  YouTube's Terms of Service and copyright law. You are responsible for how you use Florestan.
+
 What you need
 - A Mac with Apple Silicon (M1 or newer) running macOS 26 or later.
 - Nothing else: Florestan brings its own download tools.

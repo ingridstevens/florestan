@@ -37,6 +37,12 @@ Notes:
 
 See `CONTEXT.md` for the vocabulary used in the code.
 
+## Your responsibility
+
+Only download content you own or have the rights to download, such as your own uploads, or music the rights holder
+has released for free download. Downloading other content may break YouTube's Terms of Service and copyright law.
+You are responsible for how you use Florestan; the author accepts no liability for misuse.
+
 ## License
 
 Public domain (the Unlicense), see `LICENSE`. Do whatever you like with it; no credit needed.
