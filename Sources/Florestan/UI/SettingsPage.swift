@@ -56,8 +56,7 @@ struct SettingsPage: View {
                     HStack {
                         Button("Check again") { Task { await model.refreshTools() } }
                         Button("Show downloads folder") {
-                            let folder = FileManager.default.urls(for: .musicDirectory, in: .userDomainMask)[0]
-                                .appendingPathComponent("Florestan")
+                            let folder = AppModel.downloadsFolder
                             try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
                             NSWorkspace.shared.open(folder)
                         }

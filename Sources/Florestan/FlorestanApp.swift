@@ -53,7 +53,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var windowOpener: (() -> Void)? {
         didSet {
             if SnapshotHarness.outputDirectory != nil {
-                SnapshotHarness.run(model: model) { [weak self] in self?.showWindow() }
+                let panel = MenuPanel().environment(model).environment(eusebius).environment(recommendations)
+                SnapshotHarness.run(model: model, menuPanel: panel) { [weak self] in self?.showWindow() }
                 return
             }
             // Show the window the very first time Florestan runs, so it doesn't seem to do nothing.

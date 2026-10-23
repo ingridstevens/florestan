@@ -1,5 +1,7 @@
 # Florestan.exe
 
+**Version 1.0** · macOS 26 or later · Apple Silicon
+
 A small Mac menu bar app: paste a YouTube or YouTube Music link, and the song (or the whole playlist) lands in
 your Apple Music library, with a matching playlist. **Eusebius**, its calm other half, sorts your library into
 mood playlists using Apple's on-device model, and **Tidy albums** keeps songs on the right album, in the right order,
@@ -12,10 +14,32 @@ with a matching square cover.
 > and copyright law where you live. If you like an artist's music, buy it or stream it so they get paid.
 > You alone are responsible for what you download; the authors accept no liability for misuse.
 
-<!-- Screenshots go here once they exist, e.g.:
-![The menu bar panel](docs/screenshots/menu-panel.png)
-![Downloads](docs/screenshots/downloads.png)
--->
+<p align="center">
+  <img src="docs/screenshots/menu-panel.png" width="360" alt="The menu bar panel: a link field and the songs and playlists added most recently">
+</p>
+
+![Downloads: finished songs and playlists, one with a Retry button for a song that failed](docs/screenshots/downloads.png)
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/library.png" alt="Imported songs, with Tidy albums and search"></td>
+    <td><img src="docs/screenshots/forYou.png" alt="For you: songs related to the ones imported, each with an Add button"></td>
+  </tr>
+  <tr>
+    <td align="center">Imported songs</td>
+    <td align="center">For you</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/eusebius.png" alt="Eusebius: playlists by feel, made on this Mac"></td>
+    <td><img src="docs/screenshots/settings.png" alt="Settings: frame colour, login, shortcut and yt-dlp updates"></td>
+  </tr>
+  <tr>
+    <td align="center">Eusebius</td>
+    <td align="center">Settings</td>
+  </tr>
+</table>
+
+<sub>The songs shown are by Kevin MacLeod (incompetech.com), licensed under Creative Commons Attribution 4.0.</sub>
 
 ## What you need
 
@@ -27,7 +51,7 @@ Nothing else: Florestan carries its own copies of yt-dlp, ffmpeg and deno, and k
 
 ## Install
 
-1. Download **Florestan.exe.dmg** from the [latest release](../../releases/latest).
+1. Download **Florestan.exe.dmg** from the [latest release](https://github.com/ingridstevens/florestan/releases/latest).
 2. Open it and drag **Florestan.exe** onto the **Applications** folder.
 3. Eject the disk image.
 
@@ -107,6 +131,7 @@ Needs only the Xcode Command Line Tools (`xcode-select --install`):
 ./scripts/build-app.sh        # builds and installs ~/Applications/Florestan.exe.app
 ./scripts/test.sh             # core logic tests
 ./scripts/make-dmg.sh         # builds build/Florestan.exe.dmg to share
+./scripts/make-screenshots.sh # retakes docs/screenshots from the demo songs in docs/demo, not your own
 ```
 
 See [`CONTEXT.md`](CONTEXT.md) for the vocabulary used in the code.

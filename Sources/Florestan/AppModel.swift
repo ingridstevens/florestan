@@ -41,9 +41,22 @@ final class AppModel {
     private var currentJob: (id: UUID, task: Task<Void, Never>)?
     private var matcherCache: (matcher: LibraryMatcher, songCount: Int, builtAt: Date)?
 
+    /// Development aid: `FLORESTAN_HOME=<folder>` keeps Florestan's files (history, Ledger, downloads) in that folder
+    /// instead, so screenshots can be taken from a demo state without touching the real library's records.
+    nonisolated private static let homeOverride: URL? =
+        ProcessInfo.processInfo.environment["FLORESTAN_HOME"].map { URL(fileURLWithPath: $0, isDirectory: true) }
+
     nonisolated static let supportFolder: URL = {
+        if let homeOverride { return homeOverride.appendingPathComponent("Support", isDirectory: true) }
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return base.appendingPathComponent("Florestan", isDirectory: true)
+    }()
+
+    /// Where songs download before Apple Music takes them.
+    nonisolated static let downloadsFolder: URL = {
+        if let homeOverride { return homeOverride.appendingPathComponent("Music", isDirectory: true) }
+        return FileManager.default.urls(for: .musicDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Florestan", isDirectory: true)
     }()
 
     init() {
@@ -53,8 +66,7 @@ final class AppModel {
         toolsInstalled = Downloader.toolsInstalled
         ledger = LedgerStore(fileURL: support.appendingPathComponent("ledger.json"))
         historyURL = support.appendingPathComponent("history.json")
-        downloadsFolder = FileManager.default.urls(for: .musicDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Florestan", isDirectory: true)
+        downloadsFolder = Self.downloadsFolder
         settings = Settings()
 
         if let data = try? Data(contentsOf: historyURL),
