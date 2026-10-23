@@ -1,6 +1,6 @@
 # Florestan.exe
 
-**Version 1.0** · macOS 26 or later · Apple Silicon
+**Version 0.0.1** · macOS 26 or later · Apple Silicon
 
 A small Mac menu bar app: paste a YouTube or YouTube Music link, and the song (or the whole playlist) lands in
 your Apple Music library, with a matching playlist. **Eusebius**, its calm other half, sorts your library into

@@ -5,7 +5,9 @@ import SwiftUI
 
 struct Icon: View {
     var body: some View {
-        let dusk: [Color] = [0x4B2FC9, 0x7A3FD6, 0xB34BD1, 0x6A3AD8, 0xC24FC4, 0xFF6F91, 0xA24BD6, 0xFF7A9C, 0xFFB08A].map {
+        // Typed apart from the map: as one expression it's too slow for the compiler to type-check.
+        let hex: [UInt32] = [0x4B2FC9, 0x7A3FD6, 0xB34BD1, 0x6A3AD8, 0xC24FC4, 0xFF6F91, 0xA24BD6, 0xFF7A9C, 0xFFB08A]
+        let dusk: [Color] = hex.map {
             Color(red: Double(($0 >> 16) & 0xFF) / 255, green: Double(($0 >> 8) & 0xFF) / 255, blue: Double($0 & 0xFF) / 255)
         }
         ZStack {
