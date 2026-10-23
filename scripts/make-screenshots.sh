@@ -10,6 +10,8 @@ mkdir -p "$DEMO/Support/bin"
 cp docs/demo/history.json docs/demo/ledger.json "$DEMO/Support/"
 # Fresh suggestions, so For you shows these instead of fetching new ones.
 sed "s/LAST_REFRESH/$(date -u +%Y-%m-%dT%H:%M:%SZ)/" docs/demo/recommendations.json > "$DEMO/Support/recommendations.json"
+# Made-up cover art, which Florestan shows in place of YouTube thumbnails.
+swift scripts/make-demo-thumbnails.swift docs/demo "$DEMO/Thumbnails"
 # The bundled tools, if fetched, so the panel doesn't ask for them.
 if [[ -f Support/Tools/VERSIONS ]]; then
     ln -s "$PWD/Support/Tools/yt-dlp_macos/yt-dlp_macos" "$DEMO/Support/bin/yt-dlp"

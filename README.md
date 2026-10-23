@@ -39,7 +39,7 @@ with a matching square cover.
   </tr>
 </table>
 
-<sub>The songs shown are by Kevin MacLeod (incompetech.com), licensed under Creative Commons Attribution 4.0.</sub>
+<sub>Every artist, song and cover in these screenshots is made up.</sub>
 
 ## What you need
 
@@ -131,7 +131,7 @@ Needs only the Xcode Command Line Tools (`xcode-select --install`):
 ./scripts/build-app.sh        # builds and installs ~/Applications/Florestan.exe.app
 ./scripts/test.sh             # core logic tests
 ./scripts/make-dmg.sh         # builds build/Florestan.exe.dmg to share
-./scripts/make-screenshots.sh # retakes docs/screenshots from the demo songs in docs/demo, not your own
+./scripts/make-screenshots.sh # retakes docs/screenshots from made-up songs in docs/demo, not your own
 ```
 
 See [`CONTEXT.md`](CONTEXT.md) for the vocabulary used in the code.

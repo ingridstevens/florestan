@@ -2,147 +2,147 @@
   {
     "createdAt": "2026-10-18T16:00:00Z",
     "finishedAt": "2026-10-18T16:03:10Z",
-    "id": "6F1B2C3D-0000-4000-8000-000000000004",
+    "id": "6F1B2C3D-0000-4000-8000-000000000001",
     "link": {
       "playlist": {
-        "id": "PLdemoCinematic",
-        "url": "https://www.youtube.com/playlist?list=PLdemoCinematic"
+        "id": "PLdemoRainy",
+        "url": "https://www.youtube.com/playlist?list=PLdemoRainy"
       }
     },
     "phase": {
       "finished": {}
     },
-    "title": "Cinematic \u00b7 Kevin MacLeod",
+    "title": "Rainy Sunday",
     "tracks": [
       {
-        "artist": "Kevin MacLeod",
+        "artist": "Mira Exempla",
         "state": {
           "imported": {}
         },
-        "title": "Aurea Carmina",
-        "videoID": "KixRGgCQfUo"
+        "title": "Background Noise",
+        "videoID": "demo0000013"
       },
       {
-        "artist": "Kevin MacLeod",
+        "artist": "Artista Artita",
         "state": {
           "imported": {}
         },
-        "title": "Aces High",
-        "videoID": "E16yOc7-Chw"
+        "title": "Generic Love Song",
+        "videoID": "demo0000014"
       },
       {
-        "artist": "Kevin MacLeod",
+        "artist": "Echo Demo",
         "state": {
           "imported": {}
         },
-        "title": "Investigations",
-        "videoID": "7_t7gQ8Olgk"
+        "title": "Mock-Up Melody",
+        "videoID": "demo0000015"
       },
       {
-        "artist": "Kevin MacLeod",
+        "artist": "Los Ficticios",
         "state": {
           "imported": {}
         },
-        "title": "One-eyed Maestro",
-        "videoID": "Dm-bpETpyRg"
+        "title": "Filler (Interlude)",
+        "videoID": "demo0000016"
       },
       {
-        "artist": "Kevin MacLeod",
+        "artist": "The Placeholders",
         "state": {
           "imported": {}
         },
-        "title": "There is Romance",
-        "videoID": "HTd1sl4G4O8"
+        "title": "Rough Cut",
+        "videoID": "demo0000017"
       },
       {
-        "artist": "Kevin MacLeod",
+        "artist": "Mira Exempla",
         "state": {
           "imported": {}
         },
-        "title": "In a Heartbeat",
-        "videoID": "7Go9Ok6avtQ"
+        "title": "Work in Progress",
+        "videoID": "demo0000018"
       },
       {
-        "artist": "Kevin MacLeod",
+        "artist": "DJ Sample",
         "state": {
           "failed": {
             "_0": "Video unavailable, and no other copy of it plays here"
           }
         },
-        "title": "Showdown",
-        "videoID": "QIT9dvXuhHQ"
+        "title": "Coming Soon",
+        "videoID": "demo0000019"
       }
     ]
   },
   {
     "createdAt": "2026-10-19T08:05:00Z",
     "finishedAt": "2026-10-19T08:05:40Z",
-    "id": "6F1B2C3D-0000-4000-8000-000000000001",
+    "id": "6F1B2C3D-0000-4000-8000-000000000002",
     "link": {
       "song": {
-        "videoID": "wNjJiZk7H28"
+        "videoID": "demo0000022"
       }
     },
     "phase": {
       "finished": {}
     },
-    "title": "Wallpaper",
+    "title": "Elevator Music (Example)",
     "tracks": [
       {
-        "artist": "Kevin MacLeod",
+        "artist": "Echo Demo",
         "state": {
           "imported": {}
         },
-        "title": "Wallpaper",
-        "videoID": "wNjJiZk7H28"
+        "title": "Elevator Music (Example)",
+        "videoID": "demo0000022"
       }
     ]
   },
   {
     "createdAt": "2026-10-20T18:40:00Z",
     "finishedAt": "2026-10-20T18:40:40Z",
-    "id": "6F1B2C3D-0000-4000-8000-000000000002",
+    "id": "6F1B2C3D-0000-4000-8000-000000000003",
     "link": {
       "song": {
-        "videoID": "UY-aS5pmJxg"
+        "videoID": "demo0000021"
       }
     },
     "phase": {
       "finished": {}
     },
-    "title": "In the Hall of the Mountain King",
+    "title": "Not a Real Song",
     "tracks": [
       {
-        "artist": "Kevin MacLeod",
+        "artist": "The Placeholders",
         "state": {
           "imported": {}
         },
-        "title": "In the Hall of the Mountain King",
-        "videoID": "UY-aS5pmJxg"
+        "title": "Not a Real Song",
+        "videoID": "demo0000021"
       }
     ]
   },
   {
     "createdAt": "2026-10-21T09:12:00Z",
     "finishedAt": "2026-10-21T09:12:40Z",
-    "id": "6F1B2C3D-0000-4000-8000-000000000003",
+    "id": "6F1B2C3D-0000-4000-8000-000000000004",
     "link": {
       "song": {
-        "videoID": "twdNHG3NKQU"
+        "videoID": "demo0000020"
       }
     },
     "phase": {
       "finished": {}
     },
-    "title": "Carefree",
+    "title": "Demo Days",
     "tracks": [
       {
-        "artist": "Kevin MacLeod",
+        "artist": "Artista Artita",
         "state": {
           "imported": {}
         },
-        "title": "Carefree",
-        "videoID": "twdNHG3NKQU"
+        "title": "Demo Days",
+        "videoID": "demo0000020"
       }
     ]
   },
@@ -152,110 +152,110 @@
     "id": "6F1B2C3D-0000-4000-8000-000000000005",
     "link": {
       "playlist": {
-        "id": "PLdemoUpbeat",
-        "url": "https://www.youtube.com/playlist?list=PLdemoUpbeat"
+        "id": "PLdemoRun",
+        "url": "https://www.youtube.com/playlist?list=PLdemoRun"
       }
     },
     "phase": {
       "finished": {}
     },
-    "title": "Upbeat \u00b7 Kevin MacLeod",
+    "title": "Morning Run",
     "tracks": [
       {
-        "artist": "Kevin MacLeod",
+        "artist": "Artista Artita",
         "state": {
           "imported": {}
         },
-        "title": "Hyperfun",
-        "videoID": "gC0I0fdViZE"
+        "title": "Song Title Here",
+        "videoID": "demo0000001"
       },
       {
-        "artist": "Kevin MacLeod",
+        "artist": "The Placeholders",
         "state": {
           "imported": {}
         },
-        "title": "Disco con Tutti",
-        "videoID": "QauQ4KMEO7I"
+        "title": "Placeholder Blues",
+        "videoID": "demo0000002"
       },
       {
-        "artist": "Kevin MacLeod",
+        "artist": "Lorem Ipsum Trio",
         "state": {
           "imported": {}
         },
-        "title": "Blue Ska",
-        "videoID": "bJTYaGeqt3k"
+        "title": "Lorem Ipsum Dolor",
+        "videoID": "demo0000003"
       },
       {
-        "artist": "Kevin MacLeod",
+        "artist": "DJ Sample",
         "state": {
           "imported": {}
         },
-        "title": "Happy Happy Game Show",
-        "videoID": "isrgZpuJ-KI"
+        "title": "Sample Rate",
+        "videoID": "demo0000004"
       },
       {
-        "artist": "Kevin MacLeod",
+        "artist": "Artista Artita",
         "state": {
           "imported": {}
         },
-        "title": "Run Amok",
-        "videoID": "mOXginnvZ4A"
+        "title": "Untitled No. 4",
+        "videoID": "demo0000005"
       },
       {
-        "artist": "Kevin MacLeod",
+        "artist": "Nova Testa",
         "state": {
           "imported": {}
         },
-        "title": "Rocket",
-        "videoID": "ARed-tuaYmE"
+        "title": "Imaginary Friends",
+        "videoID": "demo0000006"
       },
       {
-        "artist": "Kevin MacLeod",
+        "artist": "Echo Demo",
         "state": {
           "imported": {}
         },
-        "title": "Winner Winner!",
-        "videoID": "FW0z5qpfoEU"
+        "title": "Test Pattern",
+        "videoID": "demo0000007"
       },
       {
-        "artist": "Kevin MacLeod",
+        "artist": "Los Ficticios",
         "state": {
           "imported": {}
         },
-        "title": "New Friendly",
-        "videoID": "IyWjj_sL0PQ"
+        "title": "Pretend Parade",
+        "videoID": "demo0000008"
       },
       {
-        "artist": "Kevin MacLeod",
+        "artist": "The Placeholders",
         "state": {
           "imported": {}
         },
-        "title": "Disco Medusae",
-        "videoID": "tXI__Y-9UpQ"
+        "title": "Example Anthem",
+        "videoID": "demo0000009"
       },
       {
-        "artist": "Kevin MacLeod",
+        "artist": "Lorem Ipsum Trio",
         "state": {
           "imported": {}
         },
-        "title": "Sneaky Snitch",
-        "videoID": "QrqjLoPbnyY"
+        "title": "Dummy Text",
+        "videoID": "demo0000010"
       },
       {
-        "artist": "Kevin MacLeod",
+        "artist": "Mira Exempla",
         "state": {
           "imported": {}
         },
-        "title": "Honey Bee",
-        "videoID": "1wJWHrtNIMU"
+        "title": "Draft Number Nine",
+        "videoID": "demo0000011"
       },
       {
-        "artist": "Kevin MacLeod",
+        "artist": "Nova Testa",
         "state": {
           "imported": {}
         },
-        "title": "The Builder",
-        "videoID": "xhjJyoguJtY"
+        "title": "Stand-In",
+        "videoID": "demo0000012"
       }
     ]
   }

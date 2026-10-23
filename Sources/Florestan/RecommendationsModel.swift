@@ -11,7 +11,7 @@ struct Recommendation: Identifiable, Codable, Hashable {
     /// Title of the imported song it's related to.
     var because: String
     var id: String { videoID }
-    var thumbnailURL: URL { URL(string: "https://i.ytimg.com/vi/\(videoID)/mqdefault.jpg")! }
+    var thumbnailURL: URL { VideoThumbnail.url(for: videoID) }
     var url: String { "https://www.youtube.com/watch?v=\(videoID)" }
 }
 

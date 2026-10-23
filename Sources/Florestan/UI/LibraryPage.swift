@@ -57,7 +57,7 @@ private struct LedgerRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Thumbnail(url: URL(string: "https://i.ytimg.com/vi/\(entry.videoID)/mqdefault.jpg"), size: 34, corner: 6)
+            Thumbnail(url: VideoThumbnail.url(for: entry.videoID), size: 34, corner: 6)
             VStack(alignment: .leading, spacing: 1) {
                 Text(entry.metadata.title).lineLimit(1)
                 Text(entry.metadata.artist).font(.caption).foregroundStyle(.secondary).lineLimit(1)

@@ -21,13 +21,25 @@ struct Track: Identifiable, Codable, Hashable {
     var artist: String?
     var state: State = .waiting
 
-    var thumbnailURL: URL { URL(string: "https://i.ytimg.com/vi/\(videoID)/mqdefault.jpg")! }
+    var thumbnailURL: URL { VideoThumbnail.url(for: videoID) }
 
     var isDone: Bool {
         switch state {
         case .imported, .skipped, .removed, .failed: true
         default: false
         }
+    }
+}
+
+/// YouTube's thumbnail for a video. With `FLORESTAN_HOME` set (see AppModel), a picture named after the video in its
+/// Thumbnails folder stands in, so the made-up songs of the screenshots need no real video.
+enum VideoThumbnail {
+    static func url(for videoID: String) -> URL {
+        if let local = AppModel.homeOverride?.appendingPathComponent("Thumbnails/\(videoID).png"),
+           FileManager.default.fileExists(atPath: local.path) {
+            return local
+        }
+        return URL(string: "https://i.ytimg.com/vi/\(videoID)/mqdefault.jpg")!
     }
 }
 

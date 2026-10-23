@@ -2,40 +2,40 @@
   "dismissed": [],
   "items": [
     {
-      "artist": "Kevin MacLeod",
-      "because": "Hyperfun",
-      "title": "The Cannery",
-      "videoID": "hh61GmaTmjc"
+      "artist": "Lorem Ipsum Trio",
+      "because": "Lorem Ipsum Dolor",
+      "title": "Another Example",
+      "videoID": "demo0000023"
     },
     {
-      "artist": "Kevin MacLeod",
-      "because": "Wallpaper",
-      "title": "Local Forecast - Elevator",
-      "videoID": "5IyL1l34PIs"
+      "artist": "Artista Artita",
+      "because": "Song Title Here",
+      "title": "Insert Chorus Here",
+      "videoID": "demo0000024"
     },
     {
-      "artist": "Kevin MacLeod",
-      "because": "Sneaky Snitch",
-      "title": "Sneaky Adventure",
-      "videoID": "py2IOtV7lFU"
+      "artist": "DJ Sample",
+      "because": "Sample Rate",
+      "title": "Lo-Fi Placeholder",
+      "videoID": "demo0000025"
     },
     {
-      "artist": "Kevin MacLeod",
-      "because": "Run Amok",
-      "title": "Mistake the Getaway",
-      "videoID": "6qY7t_pBmYg"
+      "artist": "Mira Exempla",
+      "because": "Draft Number Nine",
+      "title": "Tentative Title",
+      "videoID": "demo0000026"
     },
     {
-      "artist": "Kevin MacLeod",
-      "because": "Blue Ska",
-      "title": "There It Is",
-      "videoID": "u2ny3kZ_8j4"
+      "artist": "The Placeholders",
+      "because": "Placeholder Blues",
+      "title": "B-Side (Demo)",
+      "videoID": "demo0000027"
     },
     {
-      "artist": "Kevin MacLeod",
-      "because": "In the Hall of the Mountain King",
-      "title": "Brandenburg Concerto No. 4 in G, Movement I (Allegro), BWV 1049",
-      "videoID": "uWTDXP6r0h4"
+      "artist": "Los Ficticios",
+      "because": "Pretend Parade",
+      "title": "Fictional Waltz",
+      "videoID": "demo0000028"
     }
   ],
   "lastRefresh": "LAST_REFRESH"

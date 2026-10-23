@@ -43,7 +43,7 @@ final class AppModel {
 
     /// Development aid: `FLORESTAN_HOME=<folder>` keeps Florestan's files (history, Ledger, downloads) in that folder
     /// instead, so screenshots can be taken from a demo state without touching the real library's records.
-    nonisolated private static let homeOverride: URL? =
+    nonisolated static let homeOverride: URL? =
         ProcessInfo.processInfo.environment["FLORESTAN_HOME"].map { URL(fileURLWithPath: $0, isDirectory: true) }
 
     nonisolated static let supportFolder: URL = {
