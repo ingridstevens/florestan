@@ -8,7 +8,7 @@ Florestan's own code and keep their own licences. `scripts/fetch-tools.sh` shows
 
 - Project: https://github.com/yt-dlp/yt-dlp
 - Licence: The Unlicense (public domain)
-- Binary: the official `yt-dlp_macos` release build
+- Binary: the official `yt-dlp_macos.zip` release build (unpacked)
 
 ## deno
 

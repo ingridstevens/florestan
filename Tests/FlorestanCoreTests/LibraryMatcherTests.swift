@@ -43,4 +43,32 @@ import Testing
     func leavesOthersAlone(_ title: String, _ artist: String) {
         #expect(!library.contains(title: title, artist: artist))
     }
+
+    @Test(arguments: [
+        ("Call Me Maybe", "Call Me Maybe"),
+        ("Take Me Home (feat. Bebe Rexha)", "Take Me Home (feat. Bebe Rexha)"),
+        ("Take Me Home", "Take Me Home (feat. Bebe Rexha)"),
+        ("Take Me Home (feat. Bebe Rexha)", "Take Me Home"),
+        ("Wonderwall", "Wonderwall (Remastered)"),
+        ("Here Comes the Sun - Remastered 2009", "Here Comes the Sun"),
+    ])
+    func findsAnotherUploadOfTheSameSong(_ candidate: String, _ original: String) {
+        #expect(LibraryMatcher.isSameSong(candidate, as: original))
+    }
+
+    @Test(arguments: [
+        ("Wonderwall (Piano Version)", "Wonderwall (Remastered)"),
+        ("Heat Waves (Slowed + Reverb)", "Heat Waves"),
+        ("Crazy In Love (Live)", "Crazy In Love"),
+        ("Crazy", "Crazy In Love"),
+    ])
+    func turnsDownOtherRecordings(_ candidate: String, _ original: String) {
+        #expect(!LibraryMatcher.isSameSong(candidate, as: original))
+    }
+
+    @Test func comparesArtistCredits() {
+        #expect(LibraryMatcher.sameArtist("Cash Cash, Bebe Rexha", "Cash Cash"))
+        #expect(LibraryMatcher.sameArtist("Carly Rae Jepsen", "Carly Rae Jepsen - Topic"))
+        #expect(!LibraryMatcher.sameArtist("Ryan Adams", "Oasis"))
+    }
 }

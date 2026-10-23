@@ -47,6 +47,36 @@ public struct LibraryMatcher: Sendable {
         return false
     }
 
+    /// True when `candidate` is a title for the same recording as `original`, as when looking for another upload
+    /// of a song. Stricter than `contains`: the candidate may drop or add a remaster note, a year or a "feat." credit,
+    /// but not words like "Piano Version" or "Live" that make it a different recording.
+    public static func isSameSong(_ candidate: String, as original: String) -> Bool {
+        let key = normalizeTitle(original)
+        guard !key.isEmpty, normalizeTitle(candidate) == key else { return false }
+        let added = extraWords(candidate).subtracting(extraWords(original))
+        return added.allSatisfy { harmlessExtras.contains($0) || $0.allSatisfy(\.isNumber) }
+    }
+
+    /// True when two artist credits share an artist ("Cash Cash" and "Cash Cash, Bebe Rexha").
+    public static func sameArtist(_ a: String, _ b: String) -> Bool {
+        overlap(artistNames(a), artistNames(b))
+    }
+
+    static let harmlessExtras: Set<String> = ["remaster", "remastered", "explicit"]
+
+    /// Words of a title that `normalizeTitle` strips, apart from a "feat." credit.
+    private static func extraWords(_ title: String) -> Set<String> {
+        let withoutCredit = fold(title)
+            .replacingOccurrences(of: #"[\(\[]\s*(feat\.?|ft\.?|featuring|with)\s[^\)\]]*[\)\]]"#, with: " ", options: .regularExpression)
+            .replacingOccurrences(of: #"\s+(feat\.?|ft\.?|featuring)\s+.*$"#, with: "", options: .regularExpression)
+        return Set(words(withoutCredit)).subtracting(words(normalizeTitle(title)))
+    }
+
+    private static func words(_ s: String) -> [String] {
+        String(s.unicodeScalars.map { CharacterSet.alphanumerics.contains($0) ? Character($0) : " " })
+            .split(separator: " ").map(String.init)
+    }
+
     static func isVersion(of a: String, _ b: String) -> Bool {
         let (short, long) = a.count <= b.count ? (a, b) : (b, a)
         guard long.hasPrefix(short + " ") else { return false }

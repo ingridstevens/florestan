@@ -36,13 +36,15 @@ struct Downloader: Sendable {
         return result?.stdout.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty
     }
 
-    /// Updates yt-dlp: its own `-U` for the copy Florestan carries, `brew upgrade` for a Homebrew one.
+    /// Updates yt-dlp: the latest release for the copy Florestan carries, `brew upgrade` for a Homebrew one.
     /// Returns true if it ran without error.
     @discardableResult
     static func upgradeYTDLP() async -> Bool {
-        if ToolInstaller.usesBundledYTDLP, let ytdlp {
-            let result = try? await Shell.run(ytdlp, ["-U"])
-            return result?.succeeded ?? false
+        if ToolInstaller.usesBundledYTDLP {
+            if ToolInstaller.installedYTDLPVersion != nil { return await ToolInstaller.updateYTDLP() }
+            // A single-file yt-dlp from an earlier Florestan, still there when this build carries no tools.
+            guard let ytdlp else { return false }
+            return (try? await Shell.run(ytdlp, ["-U"]))?.succeeded ?? false
         }
         guard let brew else { return false }
         let result = try? await Shell.run(brew, ["upgrade", "yt-dlp"])
@@ -131,6 +133,22 @@ struct Downloader: Sendable {
         c.fragment = kind.rawValue
         let link = Link.playlist(id: "search", url: c.url!)
         return try await fetchPlaylist(link, limit: limit).entries
+    }
+
+    /// Another upload of the same song that plays here, for a video YouTube says is unavailable. That's usually a
+    /// regional block on one copy of a song that has others, like a "Topic" track licensed per country. Searches
+    /// YouTube Music for its title and artist, and takes the first match with the same title and artist that plays.
+    func alternative(to videoID: String) async -> String? {
+        // YouTube's preview still answers for videos it won't play.
+        guard let original = await Self.quickInfo(videoID: videoID) else { return nil }
+        let song = TrackMetadata(from: VideoInfo(id: videoID, title: original.title, channel: original.author))
+        guard let results = try? await musicSearch("\(song.title) \(song.artist)", kind: .songs, limit: 5) else { return nil }
+        for result in results where result.id != videoID && LibraryMatcher.isSameSong(result.title ?? "", as: song.title) {
+            // Fails for a copy that doesn't play here either.
+            guard let info = try? await videoInfo(videoID: result.id) else { continue }
+            if LibraryMatcher.sameArtist(TrackMetadata(from: info).artist, song.artist) { return result.id }
+        }
+        return nil
     }
 
     /// A video's details without downloading it.

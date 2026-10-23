@@ -415,6 +415,10 @@ final class AppModel {
         if jobs.first(where: { $0.id == jobID })?.tracks.first(where: { $0.videoID == videoID })?.state == .removed { return }
         updateTrack(jobID, videoID) { $0.state = .downloading(0) }
         var attempt = 0
+        // The video actually downloaded: another upload of the song when this one is unavailable here.
+        // The Ledger still records it under `videoID`, so the playlist keeps its place for it.
+        var source = videoID
+        var searchedAlternative = false
         while true {
             attempt += 1
             if Task.isCancelled {
@@ -422,7 +426,7 @@ final class AppModel {
                 return
             }
             do {
-                let downloaded = try await context.downloader.downloadAudio(videoID: videoID, into: downloadsFolder) { progress in
+                let downloaded = try await context.downloader.downloadAudio(videoID: source, into: downloadsFolder) { progress in
                     Task { @MainActor in
                         self.updateTrack(jobID, videoID) { t in
                             if case .downloading = t.state { t.state = .downloading(progress) }
@@ -445,6 +449,13 @@ final class AppModel {
                 updateTrack(jobID, videoID) { $0.state = .imported }
                 return
             } catch let error as DownloadFailure {
+                if error.failure == .unavailable, !searchedAlternative {
+                    searchedAlternative = true
+                    if let other = await context.downloader.alternative(to: videoID) {
+                        source = other
+                        continue
+                    }
+                }
                 if error.failure.shouldUpgradeAndRetry, !context.upgradedYTDLP {
                     context.upgradedYTDLP = true
                     await Downloader.upgradeYTDLP()
@@ -455,7 +466,8 @@ final class AppModel {
                     continue
                 }
                 if error.failure == .botCheck { botCheckHit = true }
-                updateTrack(jobID, videoID) { $0.state = .failed(error.failure.message) }
+                let message = error.failure == .unavailable ? "Video unavailable, and no other copy of it plays here" : error.failure.message
+                updateTrack(jobID, videoID) { $0.state = .failed(message) }
                 return
             } catch let error as MusicError {
                 if case .notAuthorized = error {
