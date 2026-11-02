@@ -194,7 +194,7 @@ final class RecommendationsModel {
     private static func startDownload(_ videoID: String, using model: AppModel) -> String? {
         if model.isInLibrary(videoID) { return nil }
         switch model.submit("https://www.youtube.com/watch?v=\(videoID)") {
-        case .queued, .alreadyQueued: return nil
+        case .queued, .alreadyQueued, .alreadyInLibrary: return nil
         case .toolsMissing: return "Install yt-dlp and ffmpeg first (see Downloads)."
         case .notALink: return "Couldn't make a YouTube link for this song."
         }

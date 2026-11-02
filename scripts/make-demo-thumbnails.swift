@@ -37,11 +37,17 @@ struct Cover: View {
 /// Every video ID in the demo history and suggestions.
 func videoIDs(in demo: URL) throws -> [String] {
     struct Track: Decodable { var videoID: String }
-    struct Job: Decodable { var tracks: [Track] }
+    struct Job: Decodable {
+        struct Link: Decodable { struct Song: Decodable { var videoID: String }; var song: Song? }
+        var link: Link
+        var tracks: [Track]
+    }
     struct Recommendations: Decodable { struct Item: Decodable { var videoID: String }; var items: [Item] }
     let jobs = try JSONDecoder().decode([Job].self, from: Data(contentsOf: demo.appendingPathComponent("history.json")))
     let recommendations = try JSONDecoder().decode(Recommendations.self, from: Data(contentsOf: demo.appendingPathComponent("recommendations.json")))
-    return jobs.flatMap { $0.tracks.map(\.videoID) } + recommendations.items.map(\.videoID)
+    // A waiting song has no Tracks yet, only its link.
+    return jobs.flatMap { $0.tracks.map(\.videoID) + [$0.link.song?.videoID].compactMap { $0 } }
+        + recommendations.items.map(\.videoID)
 }
 
 @MainActor func render() throws {

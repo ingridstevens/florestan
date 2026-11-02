@@ -8,8 +8,25 @@ final class AppModel {
     enum SubmitResult: Equatable {
         case queued
         case notALink
-        case alreadyQueued
+        /// A Job for this link is running or waiting. `title` is nil until Florestan knows the song or playlist's name.
+        case alreadyQueued(title: String?, running: Bool)
+        /// A song Florestan already imported; it isn't downloaded again.
+        case alreadyInLibrary(title: String)
         case toolsMissing
+    }
+
+    static func alreadyInLibraryMessage(title: String) -> String {
+        "“\(title)” is already in your Apple Music library."
+    }
+
+    /// What to tell the user when a link is pasted again while it's still in the Queue.
+    static func alreadyQueuedMessage(title: String?, running: Bool) -> String {
+        switch (title, running) {
+        case (let title?, true): "“\(title)” is already downloading."
+        case (let title?, false): "“\(title)” is already waiting to download."
+        case (nil, true): "That link is already downloading."
+        case (nil, false): "That link is already waiting to download."
+        }
     }
 
     private(set) var jobs: [Job] = []
@@ -71,13 +88,15 @@ final class AppModel {
 
         if let data = try? Data(contentsOf: historyURL),
            var saved = try? JSONDecoder.florestan.decode([Job].self, from: data) {
-            for i in saved.indices where !saved[i].isFinished {
+            // The screenshots' demo state keeps a running and a waiting Job as they are; nothing runs them.
+            for i in saved.indices where !saved[i].isFinished && Self.homeOverride == nil {
                 saved[i].phase = .failed("Stopped when Florestan quit")
             }
             jobs = saved
         }
         Task { await refreshLibrary(); await refreshTools(); await groupOlderSongs(); await reorderEarlierPlaylists()
             cleanUpLeftovers(olderThan: 3 * 24 * 60 * 60) }
+        Task { await keepYTDLPUpdated() }
     }
 
     // MARK: - Derived
@@ -93,14 +112,28 @@ final class AppModel {
     func submit(_ text: String) -> SubmitResult {
         guard let link = Link.parse(text) else { return .notALink }
         guard toolsInstalled else { return .toolsMissing }
-        if jobs.contains(where: { $0.link == link && !$0.isFinished }) { return .alreadyQueued }
-        let title: String = switch link {
-        case .song: "Song"
-        case .playlist: "Playlist"
+        if case .song(let videoID) = link, let entry = librarySongs.first(where: { $0.videoID == videoID }) {
+            return .alreadyInLibrary(title: entry.metadata.title)
         }
-        jobs.append(Job(link: link, title: title))
+        if let existing = jobs.first(where: { $0.link == link && !$0.isFinished }) {
+            return .alreadyQueued(title: existing.knownTitle, running: existing.isActive)
+        }
+        let job = Job(link: link, title: Job.placeholderTitle(for: link))
+        jobs.append(job)
         startRunner()
+        Task { await describe(job.id) }
         return .queued
+    }
+
+    /// Names a newly added Job and finds its picture, so it shows what it is while it waits its turn.
+    private func describe(_ id: UUID) async {
+        guard let link = jobs.first(where: { $0.id == id })?.link,
+              let preview = await Downloader.preview(of: link.url) else { return }
+        update(id) { job in
+            // Running Jobs name themselves from the song or playlist, which is more exact.
+            if job.knownTitle == nil { job.title = preview.title }
+            if job.thumbnail == nil { job.thumbnail = preview.thumbnail }
+        }
     }
 
     /// Tries the failed songs of a Job again, and only those. A Job that failed before it had any songs
@@ -285,6 +318,33 @@ final class AppModel {
         ytdlpVersion = await Downloader.ytdlpVersion()
     }
 
+    private var ytdlpUpdate: Task<Bool, Never>?
+
+    /// Updates yt-dlp, or waits for the update already under way. Downloads carry on meanwhile: songs that started
+    /// keep the old copy, and the next ones use the new one.
+    @discardableResult
+    func updateYTDLP() async -> Bool {
+        if let ytdlpUpdate { return await ytdlpUpdate.value }
+        let task = Task { await Downloader.upgradeYTDLP() }
+        ytdlpUpdate = task
+        let updated = await task.value
+        ytdlpUpdate = nil
+        ytdlpVersion = await Downloader.ytdlpVersion()
+        return updated
+    }
+
+    /// Keeps yt-dlp current in the background: checks at launch and then hourly, and updates once a day,
+    /// so no download waits for it. Not while showing the screenshots' demo state.
+    private func keepYTDLPUpdated() async {
+        guard Self.homeOverride == nil else { return }
+        while !Task.isCancelled {
+            if settings.keepYTDLPUpdated, settings.ytdlpUpgradeDue, toolsInstalled {
+                if await updateYTDLP() { settings.markYTDLPUpgraded() }
+            }
+            try? await Task.sleep(for: .seconds(60 * 60))
+        }
+    }
+
     // MARK: - Running the Queue
 
     private func startRunner() {
@@ -324,13 +384,6 @@ final class AppModel {
     private func run(_ id: UUID) async {
         guard let job = jobs.first(where: { $0.id == id }) else { return }
         let downloader = Downloader(cookieBrowser: settings.useBrowserLogin ? settings.cookieBrowser : nil)
-
-        if settings.keepYTDLPUpdated, settings.ytdlpUpgradeDue {
-            update(id) { $0.phase = .preparing("Updating yt-dlp…") }
-            await Downloader.upgradeYTDLP()
-            settings.markYTDLPUpgraded()
-            ytdlpVersion = await Downloader.ytdlpVersion()
-        }
 
         // Plan the Tracks, unless this is a Retry of particular songs.
         if job.retrying == true {
@@ -470,7 +523,7 @@ final class AppModel {
                 }
                 if error.failure.shouldUpgradeAndRetry, !context.upgradedYTDLP {
                     context.upgradedYTDLP = true
-                    await Downloader.upgradeYTDLP()
+                    await updateYTDLP()
                     continue
                 }
                 if !error.failure.isPermanent, attempt <= Self.retryDelays.count {

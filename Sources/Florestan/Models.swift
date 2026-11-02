@@ -62,6 +62,21 @@ struct Job: Identifiable, Codable {
     var finishedAt: Date?
     /// Set by Retry: only the songs reset to waiting run again; the playlist isn't re-read. Optional so older history still loads.
     var retrying: Bool?
+    /// YouTube's picture for the link, found when it's added, so a waiting Job shows what it is before it has Tracks.
+    var thumbnail: URL?
+
+    /// The title a Job has until Florestan learns the song or playlist's name.
+    static func placeholderTitle(for link: Link) -> String { link.isPlaylist ? "Playlist" : "Song" }
+
+    /// The song or playlist's name, or nil while it's still the placeholder.
+    var knownTitle: String? { title == Self.placeholderTitle(for: link) ? nil : title }
+
+    var thumbnailURL: URL? {
+        if let track = tracks.first { return track.thumbnailURL }
+        if let thumbnail { return thumbnail }
+        if case .song(let videoID) = link { return VideoThumbnail.url(for: videoID) }
+        return nil
+    }
 
     var isActive: Bool {
         switch phase {

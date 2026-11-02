@@ -38,8 +38,7 @@ private struct MenuBarLabel: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        Image(systemName: delegate.model.isBusy ? "arrow.down.circle.dotted" : "music.note")
-            .accessibilityLabel("Florestan.exe")
+        Image(nsImage: delegate.menuBarIcon.image)
             .task { delegate.windowOpener = { openWindow(id: "main") } }
     }
 }
@@ -49,6 +48,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = AppModel()
     let eusebius = EusebiusModel()
     let recommendations = RecommendationsModel()
+    lazy var menuBarIcon = MenuBarAnimator(model: model)
     private var hotKey: HotKey?
     var windowOpener: (() -> Void)? {
         didSet {
@@ -93,8 +93,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Notifier.post(title: "Downloading \(kind)", body: "Florestan will add it to Apple Music.")
         case .notALink:
             Notifier.post(title: "No YouTube link on the clipboard", body: "Copy a YouTube or YouTube Music link, then press ⌥⌘Y.")
-        case .alreadyQueued:
-            Notifier.post(title: "Already downloading", body: "That link is in the queue.")
+        case .alreadyQueued(let title, let running):
+            Notifier.post(title: running ? "Already downloading" : "Already waiting",
+                          body: AppModel.alreadyQueuedMessage(title: title, running: running))
+        case .alreadyInLibrary(let title):
+            Notifier.post(title: "Already in your library", body: AppModel.alreadyInLibraryMessage(title: title))
         case .toolsMissing:
             Notifier.post(title: "Florestan needs yt-dlp and ffmpeg", body: "Run: brew install yt-dlp ffmpeg")
         }

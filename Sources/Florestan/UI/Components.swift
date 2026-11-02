@@ -43,13 +43,13 @@ struct LinkField: View {
                         .frame(width: large ? 30 : 24, height: large ? 30 : 24)
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(text.isEmpty ? .white.opacity(0.5) : .black.opacity(0.8))
-                .background(Circle().fill(.white.opacity(text.isEmpty ? 0.15 : 0.95)))
-                .disabled(text.isEmpty)
+                .foregroundStyle(canDownload ? .black.opacity(0.8) : .white.opacity(0.5))
+                .background(Circle().fill(.white.opacity(canDownload ? 0.95 : 0.15)))
+                .disabled(!canDownload)
                 .keyboardShortcut(.defaultAction)
-                .help("Download")
+                .help(librarySongTitle == nil ? "Download" : "Already in your library. To download it again, Forget it in Imported songs.")
                 .accessibilityLabel("Download")
-                .animation(.snappy(duration: 0.2), value: text.isEmpty)
+                .animation(.snappy(duration: 0.2), value: canDownload)
             }
             .font(.system(size: large ? 15 : 13))
             .padding(.leading, 14)
@@ -57,26 +57,48 @@ struct LinkField: View {
             .padding(.vertical, large ? 7 : 5)
             .modifier(GlassCapsule())
 
-            if let feedback {
-                Text(feedback)
-                    .font(.callout)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 14)
-                    .transition(.opacity)
-            } else if !text.isEmpty {
+            if !text.isEmpty {
                 LinkPreviewRow(state: preview)
                     .padding(.horizontal, 6)
                     .transition(.opacity)
             }
+            if let message = feedback ?? statusMessage {
+                Text(message)
+                    .font(.callout)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14)
+                    .transition(.opacity)
+            }
         }
         .animation(.easeOut(duration: 0.15), value: feedback)
+        .animation(.easeOut(duration: 0.15), value: statusMessage)
         .animation(.easeOut(duration: 0.15), value: preview)
         .task(id: text) { await loadPreview() }
         .onAppear {
+            // The panel keeps its state while closed; a message from last time no longer applies.
+            feedback = nil
             if prefillFromClipboard { prefill() }
             focused = true
         }
     }
+
+    /// Says when the link's song is already in the library, or the link is already running or waiting in the Queue.
+    /// Read from the library and Queue as they are now, so it shows as soon as such a link is pasted and goes away
+    /// by itself once things change.
+    private var statusMessage: String? {
+        guard let link = Link.parse(text) else { return nil }
+        if let title = librarySongTitle { return AppModel.alreadyInLibraryMessage(title: title) }
+        guard let job = model.jobs.first(where: { $0.link == link && !$0.isFinished }) else { return nil }
+        return AppModel.alreadyQueuedMessage(title: job.knownTitle, running: job.isActive)
+    }
+
+    /// The title of the pasted song if Florestan already imported it, which turns the Download button off.
+    private var librarySongTitle: String? {
+        guard case .song(let videoID) = Link.parse(text) else { return nil }
+        return model.librarySongs.first { $0.videoID == videoID }?.metadata.title
+    }
+
+    private var canDownload: Bool { !text.isEmpty && librarySongTitle == nil }
 
     private func loadPreview() async {
         guard let link = Link.parse(text) else {
@@ -105,6 +127,8 @@ struct LinkField: View {
     }
 
     private func prefill() {
+        // Not in the screenshots' demo state, which mustn't show whatever is on the clipboard.
+        guard AppModel.homeOverride == nil else { return }
         guard text.isEmpty, let clip = NSPasteboard.general.string(forType: .string), Link.parse(clip) != nil else { return }
         text = clip.trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -117,8 +141,9 @@ struct LinkField: View {
             feedback = nil
         case .notALink:
             feedback = "That isn't a YouTube link. Copy it from the address bar or the Share menu."
-        case .alreadyQueued:
-            feedback = "That link is already downloading."
+        case .alreadyQueued, .alreadyInLibrary:
+            // `statusMessage` already says so.
+            feedback = nil
         case .toolsMissing:
             feedback = "Install yt-dlp and ffmpeg first (see below)."
         }

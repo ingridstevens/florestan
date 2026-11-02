@@ -16,19 +16,7 @@ struct DownloadsPage: View {
                     VStack(alignment: .leading, spacing: 8) {
                         SectionLabel("Waiting")
                         ForEach(model.queuedJobs) { job in
-                            HStack(spacing: 10) {
-                                Image(systemName: job.link.isPlaylist ? "music.note.list" : "music.note")
-                                    .foregroundStyle(.secondary).frame(width: 20)
-                                Text(job.link.url.absoluteString).lineLimit(1).truncationMode(.middle)
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                Button { model.cancel(job) } label: {
-                                    Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary)
-                                }
-                                .buttonStyle(.plain)
-                                .help("Don't download this")
-                                .accessibilityLabel("Remove from the queue")
-                            }
+                            WaitingJobRow(job: job, size: 36)
                         }
                     }
                 }

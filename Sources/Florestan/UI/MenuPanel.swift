@@ -18,10 +18,7 @@ struct MenuPanel: View {
                 if let job = model.activeJob {
                     ActiveJobSummary(job: job, tint: model.settings.theme.accent)
                 }
-                if !model.queuedJobs.isEmpty {
-                    Text(model.queuedJobs.count == 1 ? "1 more link waiting" : "\(model.queuedJobs.count) more links waiting")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
+                waiting
                 recent
             }
             .padding(14)
@@ -49,6 +46,25 @@ struct MenuPanel: View {
         .padding(14)
         .background(FrameBackground(colors: model.settings.theme.mesh, flowing: model.isBusy))
     }
+
+    /// Links waiting their turn, so it's clear what's queued before pasting one again.
+    @ViewBuilder private var waiting: some View {
+        let queued = model.queuedJobs
+        if !queued.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Waiting").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                ForEach(queued.prefix(Self.waitingShown)) { job in
+                    WaitingJobRow(job: job, size: 28)
+                }
+                if queued.count > Self.waitingShown {
+                    Button("\(queued.count - Self.waitingShown) more waiting") { open(.downloads) }
+                        .buttonStyle(.plain).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private static let waitingShown = 3
 
     @ViewBuilder private var recent: some View {
         let finished = Array(model.finishedJobs.prefix(4))
@@ -101,7 +117,7 @@ struct ActiveJobSummary: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
-                Thumbnail(url: current?.thumbnailURL ?? job.tracks.first?.thumbnailURL, size: 40, corner: 7)
+                Thumbnail(url: current?.thumbnailURL ?? job.thumbnailURL, size: 40, corner: 7)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(job.title).font(.headline).lineLimit(1)
                     Text(current.map { "\($0.title)" } ?? job.summary)
@@ -122,6 +138,33 @@ struct ActiveJobSummary: View {
 
     private var current: Track? {
         job.tracks.first { if case .downloading = $0.state { true } else { $0.state == .importing } }
+    }
+}
+
+/// A Job in the Queue: what it is, and a button to drop it.
+struct WaitingJobRow: View {
+    @Environment(AppModel.self) private var model
+    var job: Job
+    var size: CGFloat
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Thumbnail(url: job.thumbnailURL, size: size, corner: 5)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(job.knownTitle ?? job.link.url.absoluteString)
+                    .lineLimit(1).truncationMode(job.knownTitle == nil ? .middle : .tail)
+                Text(job.link.isPlaylist ? "Playlist · waiting" : "Waiting")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+            Button { model.cancel(job) } label: {
+                Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary)
+            }
+            .buttonStyle(.plain)
+            .help("Don't download this")
+            .accessibilityLabel("Remove \(job.knownTitle ?? "this link") from the queue")
+        }
+        .accessibilityElement(children: .contain)
     }
 }
 

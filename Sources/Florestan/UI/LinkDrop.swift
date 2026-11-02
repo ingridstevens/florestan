@@ -65,7 +65,8 @@ struct LinkDropTarget: ViewModifier {
         let message: String = switch model.submit(text) {
         case .queued: Link.parse(text)?.isPlaylist == true ? "Downloading playlist" : "Downloading song"
         case .notALink: "That isn't a YouTube link"
-        case .alreadyQueued: "That link is already downloading"
+        case .alreadyQueued(let title, let running): AppModel.alreadyQueuedMessage(title: title, running: running)
+        case .alreadyInLibrary(let title): AppModel.alreadyInLibraryMessage(title: title)
         case .toolsMissing: "Install yt-dlp and ffmpeg first"
         }
         feedback = message

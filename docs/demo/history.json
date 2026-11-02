@@ -258,5 +258,91 @@
         "videoID": "demo0000012"
       }
     ]
+  },
+  {
+    "createdAt": "2026-10-23T18:00:00Z",
+    "id": "6F1B2C3D-0000-4000-8000-000000000010",
+    "link": {
+      "playlist": {
+        "id": "PLdemoWalk",
+        "url": "https://www.youtube.com/playlist?list=PLdemoWalk"
+      }
+    },
+    "phase": {
+      "running": {}
+    },
+    "title": "Evening Walk",
+    "tracks": [
+      {
+        "artist": "Nova Testa",
+        "state": {
+          "imported": {}
+        },
+        "title": "Pretend Promenade",
+        "videoID": "demo0000100"
+      },
+      {
+        "artist": "Los Ficticios",
+        "state": {
+          "imported": {}
+        },
+        "title": "Fake Fanfare",
+        "videoID": "demo0000101"
+      },
+      {
+        "artist": "Echo Demo",
+        "state": {
+          "downloading": {
+            "_0": 0.45
+          }
+        },
+        "title": "Stand-By Serenade",
+        "videoID": "demo0000102"
+      },
+      {
+        "artist": "Lorem Ipsum Trio",
+        "state": {
+          "waiting": {}
+        },
+        "title": "Lorem Lullaby",
+        "videoID": "demo0000103"
+      },
+      {
+        "artist": "DJ Sample",
+        "state": {
+          "waiting": {}
+        },
+        "title": "Sample Sunset",
+        "videoID": "demo0000104"
+      }
+    ]
+  },
+  {
+    "createdAt": "2026-10-23T18:01:00Z",
+    "id": "6F1B2C3D-0000-4000-8000-000000000011",
+    "link": {
+      "song": {
+        "videoID": "demo0000110"
+      }
+    },
+    "phase": {
+      "queued": {}
+    },
+    "title": "Insert Bridge Here",
+    "tracks": []
+  },
+  {
+    "createdAt": "2026-10-23T18:02:00Z",
+    "id": "6F1B2C3D-0000-4000-8000-000000000012",
+    "link": {
+      "song": {
+        "videoID": "demo0000111"
+      }
+    },
+    "phase": {
+      "queued": {}
+    },
+    "title": "Working Title",
+    "tracks": []
   }
 ]
