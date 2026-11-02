@@ -8,6 +8,10 @@ struct MenuPanel: View {
     var body: some View {
         VStack(spacing: 0) {
             header
+            if model.player.song != nil {
+                NowPlayingStrip()
+                Divider()
+            }
             VStack(alignment: .leading, spacing: 12) {
                 if !model.toolsInstalled {
                     ToolsMissingNotice()
@@ -141,6 +145,50 @@ struct ActiveJobSummary: View {
     }
 }
 
+/// What Music is playing, with its controls. Shown only while Music is playing or paused.
+struct NowPlayingStrip: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        let player = model.player
+        if let song = player.song {
+            HStack(spacing: 10) {
+                Group {
+                    if let artwork = song.artwork {
+                        Image(nsImage: artwork).resizable().aspectRatio(contentMode: .fill)
+                    } else {
+                        Rectangle().fill(.quaternary)
+                            .overlay(Image(systemName: "music.note").foregroundStyle(.tertiary))
+                    }
+                }
+                .frame(width: 40, height: 40)
+                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(song.title).font(.headline).lineLimit(1)
+                    Text(song.artist).font(.callout).foregroundStyle(.secondary).lineLimit(1)
+                }
+                Spacer(minLength: 0)
+                HStack(spacing: 14) {
+                    Button(action: player.previous) { Image(systemName: "backward.fill") }
+                        .help("Previous").accessibilityLabel("Previous")
+                    Button(action: player.playPause) {
+                        Image(systemName: player.isPlaying ? "pause.fill" : "play.fill").font(.title3).frame(width: 20)
+                    }
+                    .help(player.isPlaying ? "Pause" : "Play").accessibilityLabel(player.isPlaying ? "Pause" : "Play")
+                    Button(action: player.next) { Image(systemName: "forward.fill") }
+                        .help("Next").accessibilityLabel("Next")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.primary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Now playing: \(song.title) by \(song.artist)")
+        }
+    }
+}
+
 /// A Job in the Queue: what it is, and a button to drop it.
 struct WaitingJobRow: View {
     @Environment(AppModel.self) private var model
@@ -198,6 +246,13 @@ struct CompactJobRow: View {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(tint)
             }
             if model.canOpenInAppleMusic(job) {
+                Button { model.play(job) } label: {
+                    Image(systemName: "play.circle")
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.secondary)
+                .help(job.link.isPlaylist ? "Play this playlist" : "Play this song")
+                .accessibilityLabel("Play \(job.title)")
                 Button { model.openInAppleMusic(job) } label: {
                     Image(systemName: "arrow.up.forward.app")
                 }

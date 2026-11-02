@@ -279,11 +279,12 @@ enum MusicLibrary {
     }
 
     /// Music answers overlapping `add` requests with "Parameter error (-50)", so every request waits its turn.
-    private static let serial = SerialQueue()
+    static let serial = SerialQueue()
 
-    private static func run(_ script: String, _ arguments: [String]) async throws -> String {
+    /// Runs a script in Music, waiting behind earlier requests in `queue` (by default the one imports use).
+    static func run(_ script: String, _ arguments: [String], on queue: SerialQueue = serial) async throws -> String {
         let osascript = URL(fileURLWithPath: "/usr/bin/osascript")
-        let result = try await serial.run { try await Shell.run(osascript, ["-e", script] + arguments) }
+        let result = try await queue.run { try await Shell.run(osascript, ["-e", script] + arguments) }
         guard result.succeeded else {
             if result.stderr.contains("-1743") { throw MusicError.notAuthorized }
             let message = result.stderr.replacingOccurrences(of: #"^.*execution error: "#, with: "", options: .regularExpression)

@@ -47,6 +47,8 @@ final class AppModel {
     var settings: Settings
     /// Files newly downloaded songs onto their albums in the background.
     let autoTidier = TidyAlbumsModel()
+    /// What Music is playing, and the controls for it.
+    let player = NowPlaying()
 
     /// yt-dlp with the user's current login settings.
     var downloader: Downloader { Downloader(cookieBrowser: settings.useBrowserLogin ? settings.cookieBrowser : nil) }
@@ -97,6 +99,7 @@ final class AppModel {
         Task { await refreshLibrary(); await refreshTools(); await groupOlderSongs(); await reorderEarlierPlaylists()
             cleanUpLeftovers(olderThan: 3 * 24 * 60 * 60) }
         Task { await keepYTDLPUpdated() }
+        player.onNotAuthorized = { [weak self] in self?.musicNotAuthorized = true }
     }
 
     // MARK: - Derived
@@ -271,6 +274,18 @@ final class AppModel {
 
     func openInAppleMusic(jobID: UUID) {
         if let job = jobs.first(where: { $0.id == jobID }) { openInAppleMusic(job) }
+    }
+
+    /// Plays a song Job's song, or a playlist Job's Mirrored Playlist from the top, in Music.
+    func play(_ job: Job) {
+        switch job.link {
+        case .song(let videoID):
+            if let entry = librarySongs.first(where: { $0.videoID == videoID }) { player.play(trackID: entry.musicTrackID) }
+        case .playlist(let playlistID, _):
+            Task {
+                if let musicID = await ledger.mirroredPlaylist(for: playlistID) { player.play(playlistID: musicID) }
+            }
+        }
     }
 
     /// True when the latest attempt at this video failed and nothing is retrying it.
