@@ -119,7 +119,8 @@ Click **Sync** again after downloading new songs. If the Music tab is greyed out
   the VPN or switch networks, or turn on *Use my YouTube login* in Settings.
 - **An album shows up more than once in Music**: run **Tidy albums**. Apple Music splits an album when its songs
   differ in album artist (even invisibly, in how an accent is encoded) or year.
-- **Eusebius is unavailable**: turn on Apple Intelligence in **System Settings › Apple Intelligence & Siri**.
+- **Eusebius is unavailable**: turn on Apple Intelligence in **System Settings › Apple Intelligence & Siri** (on
+  macOS 27 the pane is called **Siri**).
 
 ## Build it yourself
 

@@ -125,12 +125,18 @@ final class EusebiusModel {
 
     var unavailableReason: String? { Self.modelUnavailableReason(for: "Eusebius") }
 
+    /// The System Settings pane where Apple Intelligence is turned on: "Apple Intelligence & Siri" on macOS 26,
+    /// renamed "Siri" in macOS 27.
+    static var appleIntelligenceSettingsPane: String {
+        ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 27 ? "Siri" : "Apple Intelligence & Siri"
+    }
+
     /// Why the on-device model can't run, or nil when it can.
     static func modelUnavailableReason(for feature: String) -> String? {
         switch SystemLanguageModel.default.availability {
         case .available: nil
         case .unavailable(.appleIntelligenceNotEnabled):
-            "\(feature) uses Apple Intelligence, which is turned off. Turn it on in System Settings › Apple Intelligence & Siri."
+            "\(feature) uses Apple Intelligence, which is turned off. Turn it on in System Settings › \(appleIntelligenceSettingsPane)."
         case .unavailable(.modelNotReady):
             "Apple Intelligence is still downloading its model. Try again in a few minutes."
         case .unavailable(.deviceNotEligible):

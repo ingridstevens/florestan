@@ -28,4 +28,4 @@ The first time you download
 
 Optional
 - Eusebius (mood playlists) and offline suggestions need Apple Intelligence:
-  System Settings › Apple Intelligence & Siri.
+  System Settings › Apple Intelligence & Siri (called Siri on macOS 27).
