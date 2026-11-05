@@ -1,11 +1,29 @@
-# Florestan.exe
+<p align="center">
+  <img src="docs/icon.png" width="128" height="128" alt="Florestan.exe app icon: a white music note on a purple-to-peach gradient">
+</p>
 
-**Version 0.0.2** · macOS 26 or later · Apple Silicon
+<h1 align="center">Florestan.exe</h1>
 
-A small Mac menu bar app: paste a YouTube or YouTube Music link, and the song (or the whole playlist) lands in
-your Apple Music library, with a matching playlist. **Eusebius**, its calm other half, sorts your library into
-mood playlists using Apple's on-device model, and **Tidy albums** keeps songs on the right album, in the right order,
-with a matching square cover.
+<p align="center">
+  <b>Paste a YouTube link. Get the song in Apple Music.</b><br>
+  A small Mac menu bar app for songs and whole playlists, with a player, mood playlists and tidy albums.
+</p>
+
+<p align="center">
+  <a href="https://github.com/ingridstevens/florestan/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/ingridstevens/florestan?label=release&color=7A3FD6"></a>
+  <img alt="macOS 26 or later" src="https://img.shields.io/badge/macOS-26%2B-111111?logo=apple&logoColor=white">
+  <img alt="Apple Silicon" src="https://img.shields.io/badge/Apple%20Silicon-M1%2B-111111">
+  <a href="LICENSE"><img alt="Public domain (Unlicense)" src="https://img.shields.io/badge/license-Unlicense-C24FC4"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/ingridstevens/florestan/releases/latest"><b>⬇ Download Florestan.exe for Mac</b></a>
+  &nbsp;·&nbsp; Version 0.0.2 &nbsp;·&nbsp; <a href="#install">How to install</a>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/hero.jpg" alt="Florestan.exe on a Mac: the menu bar panel is open below its music note, showing the song playing, a playlist downloading and two links waiting, in front of the main window">
+</p>
 
 > [!IMPORTANT]
 > **Florestan is not a tool for copyright infringement.** Only use it for content you own or have the rights to
@@ -14,28 +32,55 @@ with a matching square cover.
 > and copyright law where you live. If you like an artist's music, buy it or stream it so they get paid.
 > You alone are responsible for what you download; the authors accept no liability for misuse.
 
-<p align="center">
-  <img src="docs/screenshots/menu-panel.png" width="360" alt="The menu bar panel: a link field and the songs and playlists added most recently">
-</p>
-
-![Downloads: finished songs and playlists, one with a Retry button for a song that failed](docs/screenshots/downloads.png)
+## Features
 
 <table>
   <tr>
-    <td><img src="docs/screenshots/library.png" alt="Imported songs, with Tidy albums and search"></td>
-    <td><img src="docs/screenshots/forYou.png" alt="For you: songs related to the ones imported, each with an Add button"></td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/menu-panel.jpg" alt="The menu bar panel: the song playing with its controls, a playlist downloading, two links waiting and recent downloads with Play buttons">
+    </td>
+    <td width="50%" valign="top">
+      <h3>Lives in your menu bar</h3>
+      <p>Paste a link, press <b>⌥⌘Y</b> with one copied, or drag it onto the panel. Florestan shows what's downloading and what's waiting, and won't fetch a song you already have.</p>
+      <h3>Plays your music</h3>
+      <p>See what Music is playing and skip or pause from the panel. Play buttons on your downloads start a song, or a whole playlist from the top. Music does the playing, so your media keys and AirPlay keep working.</p>
+      <h3>Whole playlists</h3>
+      <p>A playlist or YouTube Music album arrives as a playlist of the same name, in the same order.</p>
+    </td>
+  </tr>
+</table>
+
+### Downloads
+
+Every song and playlist, with progress for each track. A song that failed has a Retry button, and a song YouTube
+won't play where you are is fetched from another copy of it.
+
+![Downloads: a playlist halfway through, with each song's progress, and two links waiting](docs/screenshots/downloads.jpg)
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/library.jpg" alt="Imported songs, with Tidy albums and search">
+      <h3>Imported songs</h3>
+      <p>Everything Florestan added, with search. <b>Tidy albums</b> puts songs on their album, in album order, with one square cover.</p>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/forYou.jpg" alt="For you: songs related to the ones imported, each with an Add button">
+      <h3>For you</h3>
+      <p>Songs related to what you've downloaded, from YouTube or from Apple Intelligence on your Mac.</p>
+    </td>
   </tr>
   <tr>
-    <td align="center">Imported songs</td>
-    <td align="center">For you</td>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/eusebius.png" alt="Eusebius: playlists by feel, made on this Mac"></td>
-    <td><img src="docs/screenshots/settings.png" alt="Settings: frame colour, login, shortcut and yt-dlp updates"></td>
-  </tr>
-  <tr>
-    <td align="center">Eusebius</td>
-    <td align="center">Settings</td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/eusebius.jpg" alt="Eusebius: playlists by feel, made on this Mac">
+      <h3>Eusebius</h3>
+      <p>Florestan's calm other half sorts your whole library into mood playlists, entirely on your Mac.</p>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/settings.jpg" alt="Settings: frame colour, login, shortcut and yt-dlp updates">
+      <h3>Settings</h3>
+      <p>Four frame colours, open at login, and yt-dlp kept up to date in the background.</p>
+    </td>
   </tr>
 </table>
 
@@ -90,6 +135,8 @@ xattr -dr com.apple.quarantine /Applications/Florestan.exe.app
 - Click the **♪** menu bar icon and paste a link. A YouTube link already on your clipboard is filled in for you.
 - Or copy a link anywhere and press **⌥⌘Y**.
 - Or drag a link onto the menu bar panel or the window.
+- While Music is playing, the panel shows the song with Previous, Play/Pause and Next. Play buttons on Recent and
+  Imported songs start a song, or a playlist from the top.
 - The window (open it from the menu bar panel) has your download history, imported songs, recommendations,
   Eusebius and settings.
 
