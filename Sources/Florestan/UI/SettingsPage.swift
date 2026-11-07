@@ -33,6 +33,10 @@ struct SettingsPage: View {
                     Toggle("Put new songs from YouTube videos onto their albums", isOn: $settings.tidyNewSongs)
                     Text("Looks up the album on YouTube Music after each download. Imported songs › Tidy albums does the same for older songs.")
                         .font(.caption).foregroundStyle(.secondary)
+                    Toggle("Look for another copy when a song is unavailable here", isOn: $settings.findOtherCopies)
+                    Text("Searches YouTube Music for the same song by the same artist when YouTube won't play an upload where you are. Only use it for music you have the rights to download.")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                     Toggle("Update yt-dlp automatically", isOn: $settings.keepYTDLPUpdated)
                     Text("Checks once a day. YouTube changes often, and older versions of yt-dlp stop working.")
                         .font(.caption).foregroundStyle(.secondary)
@@ -110,8 +114,11 @@ private struct ThemeSwatch: View {
 
 /// Where the names come from.
 private struct AboutSection: View {
+    @Environment(AppModel.self) private var model
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if let update = model.appUpdate { UpdateNotice(update: update) }
             Text("Robert Schumann gave the two sides of his personality names. **Florestan** was the fiery, impulsive one; **Eusebius** the dreamy, thoughtful one. They signed his music criticism, argued with each other in his essays as members of the Davidsbündler, an imaginary society he invented to defend new music, and each got a piece of their own in his *Carnaval*. He even signed the dances of his *Davidsbündlertänze* one by one with F. or E.")
                 .fixedSize(horizontal: false, vertical: true)
             Text("This app is split the same way. Florestan rushes in and grabs the music; Eusebius listens to all of it and sorts it by feel.")
@@ -124,7 +131,7 @@ private struct AboutSection: View {
                 Link("Carnaval", destination: URL(string: "https://en.wikipedia.org/wiki/Carnaval_(Schumann)")!)
             }
             .font(.callout)
-            Text("Florestan.exe \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")")
+            Text("Florestan.exe \(AppModel.appVersion ?? "")")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }

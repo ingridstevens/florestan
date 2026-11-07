@@ -57,7 +57,7 @@ public enum YTDLP {
 
         public var message: String {
             switch self {
-            case .botCheck: "YouTube asked for a bot check. This network is probably blocked; try another network or turn on “Use my browser's YouTube login” in Settings."
+            case .botCheck: "YouTube asked for a bot check. This network is probably blocked; try another network or turn on “Use my YouTube login” in Settings."
             case .ageRestricted: "Age-restricted. Needs a signed-in YouTube account."
             case .privateVideo: "Private video"
             case .membersOnly: "Members-only video"

@@ -10,18 +10,20 @@ enum MenuBarIcon {
     }
 
     /// One frame of the filling note. `time` drives the pouring notes and the ripple; `progress` (0…1) sets the level.
-    static func filling(time t: Double, progress: Double) -> NSImage {
+    /// With `moving` off (Reduce Motion), it's only the level: a still waterline and no falling notes.
+    static func filling(time t: Double, progress: Double, moving: Bool = true) -> NSImage {
         image(described: "Florestan.exe, downloading") { note, tinyNote in
             // The empty part of the glass.
             note.draw(in: noteRect, from: .zero, operation: .sourceOver, fraction: 0.3, respectFlipped: true, hints: nil)
 
             // The full part: the note again, clipped below a rippling waterline.
             let level = noteRect.maxY - CGFloat(max(progress, 0.06)) * noteRect.height
+            let ripple: CGFloat = moving ? 0.45 : 0
             let water = NSBezierPath()
             water.move(to: NSPoint(x: 0, y: size.height))
             for step in 0...48 {
                 let x = CGFloat(step) / 2
-                water.line(to: NSPoint(x: x, y: level + sin(x * 0.9 + CGFloat(t) * 6) * 0.45))
+                water.line(to: NSPoint(x: x, y: level + sin(x * 0.9 + CGFloat(t) * 6) * ripple))
             }
             water.line(to: NSPoint(x: size.width, y: size.height))
             water.close()
@@ -32,7 +34,7 @@ enum MenuBarIcon {
 
             // Tiny notes falling in the free space beside the note, drifting into its flag and fading as they arrive,
             // so they never clutter the note itself.
-            guard let tinyNote else { return }
+            guard moving, let tinyNote else { return }
             let flag = NSPoint(x: noteRect.maxX - 1.5, y: noteRect.minY + 3)
             let every = 0.3, fall = 0.9
             var i = Int(floor((t - fall) / every))
@@ -88,7 +90,8 @@ enum MenuBarIcon {
     }
 }
 
-/// Draws the filling note while the Queue is busy, and rests on the plain note otherwise.
+/// Draws the filling note while the Queue is busy, and rests on the plain note otherwise. With Reduce Motion on, the
+/// note only shows the level, redrawn once a second.
 @MainActor @Observable
 final class MenuBarAnimator {
     private(set) var image = MenuBarIcon.idle
@@ -101,9 +104,10 @@ final class MenuBarAnimator {
                 if model.isBusy {
                     // Eases toward the real progress, so the level rises smoothly instead of jumping song by song.
                     let target = model.activeJob?.progress ?? 0
-                    shown = target < shown - 0.2 ? target : shown + (target - shown) * 0.25
-                    image = MenuBarIcon.filling(time: Date.now.timeIntervalSince(start), progress: shown)
-                    try? await Task.sleep(for: MenuBarIcon.frameInterval)
+                    let moving = !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+                    shown = !moving || target < shown - 0.2 ? target : shown + (target - shown) * 0.25
+                    image = MenuBarIcon.filling(time: Date.now.timeIntervalSince(start), progress: shown, moving: moving)
+                    try? await Task.sleep(for: moving ? MenuBarIcon.frameInterval : .seconds(1))
                 } else {
                     if image !== MenuBarIcon.idle { image = MenuBarIcon.idle }
                     shown = 0

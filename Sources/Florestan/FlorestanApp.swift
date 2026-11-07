@@ -7,6 +7,10 @@ import UserNotifications
 struct FlorestanApp: App {
     @NSApplicationDelegateAdaptor private var delegate: AppDelegate
 
+    init() {
+        SingleInstance.handOffIfAlreadyRunning()
+    }
+
     var body: some Scene {
         MenuBarExtra {
             MenuPanel()
@@ -29,6 +33,23 @@ struct FlorestanApp: App {
         .windowBackgroundDragBehavior(.enabled)
         .defaultSize(width: 900, height: 620)
         .defaultLaunchBehavior(.suppressed)
+    }
+}
+
+/// Florestan runs once. A second copy, say one opened again from the disk image, would share the first one's
+/// history and Ledger and overwrite its changes, so it asks the running copy to show its window and quits before
+/// reading anything.
+enum SingleInstance {
+    static let showWindowRequest = Notification.Name("local.florestan.showWindow")
+
+    static func handOffIfAlreadyRunning() {
+        // A bare build has no bundle ID, and the screenshots' demo state keeps its own files.
+        guard AppModel.homeOverride == nil, let id = Bundle.main.bundleIdentifier else { return }
+        let others = NSRunningApplication.runningApplications(withBundleIdentifier: id).filter { $0 != .current }
+        guard let running = others.first else { return }
+        DistributedNotificationCenter.default().postNotificationName(showWindowRequest, object: nil, userInfo: nil, deliverImmediately: true)
+        running.activate()
+        exit(0)
     }
 }
 
@@ -77,6 +98,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        DistributedNotificationCenter.default().addObserver(forName: SingleInstance.showWindowRequest, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.showWindow() }
+        }
         Notifier.requestPermission()
         if Bundle.main.bundleURL.pathExtension == "app" { UNUserNotificationCenter.current().delegate = self }
         hotKey = HotKey { [weak self] in

@@ -220,11 +220,18 @@ enum MusicLibrary {
                 repeat with tid in trackIDs
                     set end of wanted to (tid as text)
                 end repeat
-                -- Appending can't reorder, so a playlist that's out of order is emptied and refilled.
-                -- Removing tracks from a playlist leaves them in the library.
+                set n to count of existing
                 if existing is not wanted then
-                    if (count of existing) > 0 then delete every track of p
-                    repeat with tid in wanted
+                    if n > 0 and n < (count of wanted) and (items 1 thru n of wanted) is existing then
+                        -- Only new songs at the end: add them, which is quick even for a long playlist.
+                        set toAdd to items (n + 1) thru -1 of wanted
+                    else
+                        -- Appending can't reorder, so a playlist that's out of order is emptied and refilled.
+                        -- Removing tracks from a playlist leaves them in the library.
+                        if n > 0 then delete every track of p
+                        set toAdd to wanted
+                    end if
+                    repeat with tid in toAdd
                         try
                             duplicate (first track of library playlist 1 whose persistent ID is tid) to p
                         end try

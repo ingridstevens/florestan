@@ -1,4 +1,5 @@
 import CryptoKit
+import FlorestanCore
 import Foundation
 
 /// Florestan carries yt-dlp, deno, ffmpeg and ffprobe inside its app bundle (Contents/Resources/Tools), so it
@@ -59,8 +60,8 @@ enum ToolInstaller {
     private static func installBundledYTDLP(from source: URL, version: String?) {
         let fm = FileManager.default
         guard let version, fm.isExecutableFile(atPath: source.appendingPathComponent(ytdlpExecutable).path) else { return }
-        // yt-dlp versions are dates (2026.08.19), so a plain comparison tells which is newer; it may have been updated past the bundle.
-        if let installed = installedYTDLPVersion, installed >= version { return }
+        // It may have been updated past the bundle's version.
+        if let installed = installedYTDLPVersion, !Releases.isNewer(version, than: installed) { return }
         let target = binFolder.appendingPathComponent(ytdlpFolderPrefix + version)
         try? fm.removeItem(at: target)
         do {
@@ -95,7 +96,7 @@ enum ToolInstaller {
         guard let (data, response) = try? await URLSession.shared.data(from: api),
               (response as? HTTPURLResponse)?.statusCode == 200,
               let latest = try? JSONDecoder().decode(Release.self, from: data).tag_name else { return false }
-        guard latest > current else { return true }
+        guard Releases.isNewer(latest, than: current) else { return true }
 
         let fm = FileManager.default
         let release = URL(string: "https://github.com/yt-dlp/yt-dlp/releases/download/\(latest)/")!
@@ -105,9 +106,7 @@ enum ToolInstaller {
         guard let (sums, _) = try? await URLSession.shared.data(from: release.appendingPathComponent("SHA2-256SUMS")),
               let zipData = try? Data(contentsOf: zip) else { return false }
         let digest = SHA256.hash(data: zipData).map { String(format: "%02x", $0) }.joined()
-        let expected = String(decoding: sums, as: UTF8.self).split(separator: "\n")
-            .first { $0.hasSuffix(" yt-dlp_macos.zip") }?.split(separator: " ").first.map(String.init)
-        guard expected == digest else { return false }
+        guard Releases.checksum(for: "yt-dlp_macos.zip", in: String(decoding: sums, as: UTF8.self)) == digest else { return false }
 
         // Unpacked beside the others under a hidden name, so a half-finished copy is never linked or kept.
         let staging = binFolder.appendingPathComponent(".\(ytdlpFolderPrefix)\(latest)")

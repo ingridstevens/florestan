@@ -1,4 +1,5 @@
 import AppKit
+import FlorestanCore
 import Observation
 
 /// Plays music in the Music app. Florestan is only the remote control: Music does the playing, so everything in the
@@ -44,20 +45,9 @@ enum MusicPlayer {
         try await run(#"tell application "Music" to back track"#)
     }
 
-    struct Status: Equatable {
-        enum State: String { case playing, paused, stopped }
-        var state: State
-        var trackID: String
-        var title: String
-        var artist: String
-        var album: String
-        /// True when the current song's cover was written to the file asked for.
-        var wroteArtwork: Bool
-    }
-
     /// What Music is playing, or nil when it's stopped or closed. Writes the song's cover to `artworkFile` unless the
     /// song is still `knownTrackID`, whose cover is already shown.
-    static func status(knownTrackID: String?, artworkFile: URL) async throws -> Status? {
+    static func status(knownTrackID: String?, artworkFile: URL) async throws -> PlayerStatus? {
         guard musicIsRunning else { return nil }
         let output = try await run("""
         on run argv
@@ -86,9 +76,7 @@ enum MusicPlayer {
             end tell
         end run
         """, [knownTrackID ?? "", artworkFile.path])
-        let f = output.split(separator: "\u{1F}", omittingEmptySubsequences: false).map(String.init)
-        guard f.count == 6, let state = Status.State(rawValue: f[0]), state != .stopped else { return nil }
-        return Status(state: state, trackID: f[1], title: f[2], artist: f[3], album: f[4], wroteArtwork: f[5] == "1")
+        return PlayerStatus.parse(output)
     }
 
     @discardableResult
@@ -158,7 +146,7 @@ final class NowPlaying {
         let known = song?.artwork == nil ? nil : song?.trackID
         let file = artworkFile
         refreshing = Task {
-            let status: MusicPlayer.Status?
+            let status: PlayerStatus?
             do {
                 status = try await MusicPlayer.status(knownTrackID: known, artworkFile: file)
             } catch MusicError.notAuthorized {

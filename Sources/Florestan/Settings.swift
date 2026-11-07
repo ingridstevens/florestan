@@ -23,6 +23,10 @@ final class Settings {
     var tidyNewSongs: Bool {
         didSet { defaults.set(tidyNewSongs, forKey: "tidyNewSongs") }
     }
+    /// When YouTube won't play a song here, search YouTube Music for another upload of it. Off unless turned on.
+    var findOtherCopies: Bool {
+        didSet { defaults.set(findOtherCopies, forKey: "findOtherCopies") }
+    }
 
     var launchAtLogin: Bool {
         get { SMAppService.mainApp.status == .enabled }
@@ -40,6 +44,7 @@ final class Settings {
         useBrowserLogin = defaults.bool(forKey: "useBrowserLogin")
         cookieBrowser = CookieBrowser(rawValue: defaults.string(forKey: "cookieBrowser") ?? "") ?? .safari
         tidyNewSongs = defaults.object(forKey: "tidyNewSongs") as? Bool ?? true
+        findOtherCopies = defaults.bool(forKey: "findOtherCopies")
     }
 
     var ytdlpUpgradeDue: Bool {

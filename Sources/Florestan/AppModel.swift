@@ -90,15 +90,28 @@ final class AppModel {
 
         if let data = try? Data(contentsOf: historyURL),
            var saved = try? JSONDecoder.florestan.decode([Job].self, from: data) {
-            // The screenshots' demo state keeps a running and a waiting Job as they are; nothing runs them.
-            for i in saved.indices where !saved[i].isFinished && Self.homeOverride == nil {
-                saved[i].phase = .failed("Stopped when Florestan quit")
+            // Links still running or waiting when Florestan quit go back in the Queue, picking up where they stopped.
+            // The screenshots' demo state keeps its running and waiting Jobs as they are; nothing runs them.
+            if Self.homeOverride == nil {
+                for i in saved.indices where !saved[i].isFinished {
+                    saved[i].phase = .queued
+                    for t in saved[i].tracks.indices {
+                        switch saved[i].tracks[t].state {
+                        case .downloading, .importing: saved[i].tracks[t].state = .waiting
+                        default: break
+                        }
+                    }
+                    // A Job that had read its playlist carries on with the songs left; one that hadn't starts over.
+                    saved[i].retrying = saved[i].tracks.isEmpty ? nil : true
+                }
             }
             jobs = saved
         }
+        if Self.homeOverride == nil, jobs.contains(where: { $0.phase == .queued }) { startRunner() }
         Task { await refreshLibrary(); await refreshTools(); await groupOlderSongs(); await reorderEarlierPlaylists()
             cleanUpLeftovers(olderThan: 3 * 24 * 60 * 60) }
         Task { await keepYTDLPUpdated() }
+        Task { await checkForAppUpdates() }
         player.onNotAuthorized = { [weak self] in self?.musicNotAuthorized = true }
     }
 
@@ -123,6 +136,7 @@ final class AppModel {
         }
         let job = Job(link: link, title: Job.placeholderTitle(for: link))
         jobs.append(job)
+        saveHistory()
         startRunner()
         Task { await describe(job.id) }
         return .queued
@@ -137,6 +151,7 @@ final class AppModel {
             if job.knownTitle == nil { job.title = preview.title }
             if job.thumbnail == nil { job.thumbnail = preview.thumbnail }
         }
+        saveHistory()
     }
 
     /// Tries the failed songs of a Job again, and only those. A Job that failed before it had any songs
@@ -280,12 +295,18 @@ final class AppModel {
     func play(_ job: Job) {
         switch job.link {
         case .song(let videoID):
-            if let entry = librarySongs.first(where: { $0.videoID == videoID }) { player.play(trackID: entry.musicTrackID) }
+            if let entry = librarySongs.first(where: { $0.videoID == videoID }) { play(entry) }
         case .playlist(let playlistID, _):
             Task {
                 if let musicID = await ledger.mirroredPlaylist(for: playlistID) { player.play(playlistID: musicID) }
             }
         }
+    }
+
+    /// Plays an imported song in Music. Music plays it on its own: its scripting can't start a song and carry on
+    /// to the next one, so Next does nothing afterwards.
+    func play(_ entry: LedgerEntry) {
+        player.play(trackID: entry.musicTrackID)
     }
 
     /// True when the latest attempt at this video failed and nothing is retrying it.
@@ -357,6 +378,35 @@ final class AppModel {
                 if await updateYTDLP() { settings.markYTDLPUpgraded() }
             }
             try? await Task.sleep(for: .seconds(60 * 60))
+        }
+    }
+
+    struct AppUpdate: Equatable {
+        var version: String
+        var page: URL
+    }
+
+    /// A newer Florestan on GitHub, if there is one.
+    private(set) var appUpdate: AppUpdate?
+
+    /// Florestan's own version, from its Info.plist.
+    nonisolated static var appVersion: String? { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String }
+
+    /// Looks for a newer Florestan release at launch and then once a day. It only says so; updating is the user's
+    /// call. Not in the screenshots' demo state, nor in builds without a version.
+    private func checkForAppUpdates() async {
+        guard Self.homeOverride == nil, let current = Self.appVersion else { return }
+        struct Release: Decodable { var tag_name: String; var html_url: URL; var draft: Bool; var prerelease: Bool }
+        let api = URL(string: "https://api.github.com/repos/ingridstevens/florestan/releases/latest")!
+        while !Task.isCancelled {
+            if let (data, response) = try? await URLSession.shared.data(from: api),
+               (response as? HTTPURLResponse)?.statusCode == 200,
+               let release = try? JSONDecoder().decode(Release.self, from: data),
+               !release.draft, !release.prerelease, Releases.isNewer(release.tag_name, than: current) {
+                let version = release.tag_name.hasPrefix("v") ? String(release.tag_name.dropFirst()) : release.tag_name
+                appUpdate = AppUpdate(version: version, page: release.html_url)
+            }
+            try? await Task.sleep(for: .seconds(24 * 60 * 60))
         }
     }
 
@@ -527,9 +577,11 @@ final class AppModel {
                     try? FileManager.default.removeItem(at: downloaded.file)
                 }
                 updateTrack(jobID, videoID) { $0.state = .imported }
+                // So a quit or crash mid-playlist loses nothing already added.
+                saveHistory()
                 return
             } catch let error as DownloadFailure {
-                if error.failure == .unavailable, !searchedAlternative {
+                if error.failure == .unavailable, settings.findOtherCopies, !searchedAlternative {
                     searchedAlternative = true
                     if let other = await context.downloader.alternative(to: videoID) {
                         source = other
@@ -546,7 +598,11 @@ final class AppModel {
                     continue
                 }
                 if error.failure == .botCheck { botCheckHit = true }
-                let message = error.failure == .unavailable ? "Video unavailable, and no other copy of it plays here" : error.failure.message
+                let message = switch (error.failure, settings.findOtherCopies) {
+                case (.unavailable, true): "Video unavailable, and no other copy of it plays here"
+                case (.unavailable, false): "Video unavailable here. To try other uploads of the song, turn on “Look for another copy” in Settings."
+                default: error.failure.message
+                }
                 updateTrack(jobID, videoID) { $0.state = .failed(message) }
                 return
             } catch let error as MusicError {

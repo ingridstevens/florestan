@@ -13,6 +13,7 @@ struct MenuPanel: View {
                 Divider()
             }
             VStack(alignment: .leading, spacing: 12) {
+                if let update = model.appUpdate { UpdateNotice(update: update) }
                 if !model.toolsInstalled {
                     ToolsMissingNotice()
                 } else if model.botCheckHit {
@@ -142,6 +143,22 @@ struct ActiveJobSummary: View {
 
     private var current: Track? {
         job.tracks.first { if case .downloading = $0.state { true } else { $0.state == .importing } }
+    }
+}
+
+/// Says a newer Florestan is out, with a link to its release page. Updating stays the user's call.
+struct UpdateNotice: View {
+    var update: AppModel.AppUpdate
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "arrow.down.app").foregroundStyle(.tint)
+            Text("Florestan.exe \(update.version) is available").lineLimit(1)
+            Spacer(minLength: 0)
+            Link("Download", destination: update.page)
+        }
+        .font(.callout)
+        .accessibilityElement(children: .combine)
     }
 }
 
