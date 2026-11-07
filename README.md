@@ -194,7 +194,8 @@ block it once more with the "Open Anyway" step, and ask again for permission to 
 1. Click **Quit** in Florestan's menu bar panel.
 2. Move **Florestan.exe** from Applications to the Trash (or run `brew uninstall --cask florestan`).
 3. To remove its data too, delete `~/Library/Application Support/Florestan` (history, the record of imported songs,
-   and its copies of yt-dlp, ffmpeg and deno) and `~/Music/Florestan` (downloads that never made it into Music).
+   and its copies of yt-dlp, ffmpeg and deno) and `~/Music/Florestan` (downloads that never made it into Music),
+   and run `defaults delete local.florestan` to forget its settings.
 
 The songs and playlists it added stay in Apple Music.
 

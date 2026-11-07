@@ -26,6 +26,13 @@ The first time you download
 - macOS asks whether Florestan may control Music. Click OK; that's how songs get into your library.
 - If downloads fail with "bot check", a VPN or office network is being blocked by YouTube. Turn the VPN off.
 
+Updating
+- Florestan says in its menu bar panel when a new version is out. Drag the new Florestan.exe into
+  Applications to replace the old one; your songs, history and settings stay. macOS may ask you to
+  "Open Anyway" again, and to let Florestan control Music again: click OK.
+
 Optional
 - Eusebius (mood playlists) and offline suggestions need Apple Intelligence:
   System Settings › Apple Intelligence & Siri (called Siri on macOS 27).
+
+More help, and how to uninstall: https://github.com/ingridstevens/florestan

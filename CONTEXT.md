@@ -1,6 +1,6 @@
 # Florestan.exe
 
-A personal Mac app that turns YouTube and YouTube Music links into songs in the owner's Apple Music library, so they can be played later from Apple Music.
+A personal Mac app that turns YouTube and YouTube Music links into songs in the owner's Apple Music library, so they can be played later from Apple Music, or from Florestan's menu bar panel, which remote-controls the Music app.
 
 ## Language
 
@@ -25,7 +25,11 @@ The work of processing one Link from start to finish. Jobs wait in the Queue and
 _Avoid_: task, download
 
 **Queue**:
-The ordered line of Jobs waiting to run.
+The ordered line of Jobs waiting to run. It's saved as Links are added, so Jobs left running or waiting when Florestan quits carry on at the next launch.
+
+**Another Copy**:
+A different upload of the same song by the same artist, found on YouTube Music when YouTube won't play a Track's video where the user is. Only looked for when the user turns it on; the Ledger still records the Track under its original video.
+_Avoid_: alternative, mirror, fallback in UI copy
 
 **Track**:
 One song within a Job, from fetching the audio through appearing in Apple Music. A Song Link's Job has one Track; a Playlist Link's Job has one per playlist entry.
@@ -45,6 +49,10 @@ _Avoid_: copied playlist
 Florestan's record of every YouTube video it has already imported. A Track already in the Ledger is skipped.
 _Avoid_: history, cache, database
 
+**Tidy Albums**:
+Putting Imported songs from plain YouTube videos onto their real album, in album order, and making each album's songs agree on Album Artist, year and a square cover, so Apple Music shows the album once.
+_Avoid_: fix, clean up, organize
+
 **Recommendation**:
 A YouTube song Florestan proposes because YouTube relates it to songs already imported. Added or turned down one at a time.
 _Avoid_: suggestion (that word belongs to Eusebius), discovery
@@ -52,6 +60,12 @@ _Avoid_: suggestion (that word belongs to Eusebius), discovery
 **Idea**:
 A song Apple Intelligence proposes on this Mac, without going online. Only an artist and title until the user adds it, at which point Florestan looks it up on YouTube.
 _Avoid_: offline recommendation, AI pick
+
+### Playing
+
+**Now Playing**:
+What the Music app is playing, shown with its controls in the menu bar panel. Florestan only sends Music commands; it never plays audio itself, and never opens Music to show this.
+_Avoid_: player (for the app's own audio), current song
 
 **Album Artist**:
 The one artist all songs of an album share in Apple Music, so they show as one album instead of separate singles, even when each song credits different performers.
