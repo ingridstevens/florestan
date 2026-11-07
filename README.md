@@ -169,6 +169,17 @@ Click **Sync** again after downloading new songs. If the Music tab is greyed out
 - **Eusebius is unavailable**: turn on Apple Intelligence in **System Settings › Apple Intelligence & Siri** (on
   macOS 27 the pane is called **Siri**).
 
+## Why Florestan?
+
+The name comes from the composer Robert Schumann. He gave the two sides of his personality names of their own:
+**Florestan**, fiery and impulsive, and **Eusebius**, dreamy and reflective. In the 1830s he signed reviews in his
+music journal, the *Neue Zeitschrift für Musik*, with their names. He wrote music for them too. In
+*Davidsbündlertänze* (Op. 6) he marked each piece F. or E. for the side that "wrote" it, and *Carnaval* (Op. 9)
+has a movement called "Eusebius" followed by one called "Florestan".
+
+The app splits the same way. Florestan is the busy half that goes out and fetches music. Eusebius is the calm half
+that listens through your library and sorts it by mood.
+
 ## Build it yourself
 
 Needs only the Xcode Command Line Tools (`xcode-select --install`):
