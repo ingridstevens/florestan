@@ -131,11 +131,53 @@ private struct AboutSection: View {
                 Link("Carnaval", destination: URL(string: "https://en.wikipedia.org/wiki/Carnaval_(Schumann)")!)
             }
             .font(.callout)
-            Text("Florestan.exe \(AppModel.appVersion ?? "")")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+            VersionRow()
         }
         .frame(maxWidth: 520, alignment: .leading)
+    }
+}
+
+/// The version this copy is, a button to check for a newer one now, and how the check went.
+private struct VersionRow: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 12) {
+                Text("Florestan.exe \(AppModel.appVersion ?? "(development build)")")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                Button("Check for updates") { Task { await model.checkForUpdatesNow() } }
+                    .controlSize(.small)
+                    .disabled(model.updateCheck == .checking || AppModel.appVersion == nil)
+                status
+            }
+            if model.appUpdate != nil, AppModel.installedWithHomebrew {
+                Text("Installed with Homebrew? Run `brew upgrade --cask florestan` to update.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
+        }
+    }
+
+    @ViewBuilder private var status: some View {
+        switch model.updateCheck {
+        case .idle:
+            EmptyView()
+        case .checking:
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text("Checking…")
+            }
+            .font(.caption).foregroundStyle(.secondary)
+        case .upToDate:
+            Label("You're up to date.", systemImage: "checkmark.circle.fill")
+                .font(.caption).foregroundStyle(.secondary)
+        case .failed:
+            Text("Couldn't reach GitHub. Check your connection and try again.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
     }
 }
 

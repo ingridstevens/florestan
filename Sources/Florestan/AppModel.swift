@@ -392,22 +392,48 @@ final class AppModel {
     /// Florestan's own version, from its Info.plist.
     nonisolated static var appVersion: String? { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String }
 
-    /// Looks for a newer Florestan release at launch and then once a day. It only says so; updating is the user's
-    /// call. Not in the screenshots' demo state, nor in builds without a version.
+    /// How the last check the user asked for went, for Settings › About.
+    enum UpdateCheck: Equatable { case idle, checking, upToDate, failed }
+    private(set) var updateCheck: UpdateCheck = .idle
+
+    /// True when Florestan was installed with Homebrew, which can also update it.
+    nonisolated static var installedWithHomebrew: Bool {
+        ["/opt/homebrew/Caskroom/florestan", "/usr/local/Caskroom/florestan"].contains { FileManager.default.fileExists(atPath: $0) }
+    }
+
+    /// Checks for a newer Florestan now, when the user asks. Updating stays the user's call: it only says so.
+    func checkForUpdatesNow() async {
+        guard updateCheck != .checking, Self.appVersion != nil else { return }
+        updateCheck = .checking
+        switch await latestRelease() {
+        case nil: updateCheck = .failed
+        case let update?:
+            appUpdate = update.isNewer ? update.release : nil
+            updateCheck = update.isNewer ? .idle : .upToDate
+        }
+    }
+
+    /// Looks for a newer Florestan release at launch and then once a day, quietly. Not in the screenshots' demo state,
+    /// nor in builds without a version.
     private func checkForAppUpdates() async {
-        guard Self.homeOverride == nil, let current = Self.appVersion else { return }
-        struct Release: Decodable { var tag_name: String; var html_url: URL; var draft: Bool; var prerelease: Bool }
-        let api = URL(string: "https://api.github.com/repos/ingridstevens/florestan/releases/latest")!
+        guard Self.homeOverride == nil, Self.appVersion != nil else { return }
         while !Task.isCancelled {
-            if let (data, response) = try? await URLSession.shared.data(from: api),
-               (response as? HTTPURLResponse)?.statusCode == 200,
-               let release = try? JSONDecoder().decode(Release.self, from: data),
-               !release.draft, !release.prerelease, Releases.isNewer(release.tag_name, than: current) {
-                let version = release.tag_name.hasPrefix("v") ? String(release.tag_name.dropFirst()) : release.tag_name
-                appUpdate = AppUpdate(version: version, page: release.html_url)
-            }
+            if let update = await latestRelease(), update.isNewer { appUpdate = update.release }
             try? await Task.sleep(for: .seconds(24 * 60 * 60))
         }
+    }
+
+    /// The latest published release on GitHub, and whether it's newer than this copy; nil when GitHub can't be reached.
+    private func latestRelease() async -> (release: AppUpdate, isNewer: Bool)? {
+        guard let current = Self.appVersion else { return nil }
+        struct Release: Decodable { var tag_name: String; var html_url: URL; var draft: Bool; var prerelease: Bool }
+        let api = URL(string: "https://api.github.com/repos/ingridstevens/florestan/releases/latest")!
+        guard let (data, response) = try? await URLSession.shared.data(from: api),
+              (response as? HTTPURLResponse)?.statusCode == 200,
+              let release = try? JSONDecoder().decode(Release.self, from: data),
+              !release.draft, !release.prerelease else { return nil }
+        let version = release.tag_name.hasPrefix("v") ? String(release.tag_name.dropFirst()) : release.tag_name
+        return (AppUpdate(version: version, page: release.html_url), Releases.isNewer(release.tag_name, than: current))
     }
 
     // MARK: - Running the Queue
