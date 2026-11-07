@@ -16,5 +16,6 @@ cp THIRD-PARTY-NOTICES.md "$STAGE/Third-Party Notices.md"
 
 DMG="build/Florestan.exe.dmg"
 rm -f "$DMG"
-hdiutil create -volname "Florestan.exe" -srcfolder "$STAGE" -fs HFS+ -format UDZO -ov "$DMG" >/dev/null
+# LZMA (ULMO): about a third smaller than the default zlib, so quicker to download and upload; opens on macOS 10.15+.
+hdiutil create -volname "Florestan.exe" -srcfolder "$STAGE" -fs HFS+ -format ULMO -ov "$DMG" >/dev/null
 echo "Created $DMG ($(du -h "$DMG" | cut -f1))"
