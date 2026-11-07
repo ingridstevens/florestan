@@ -1,6 +1,6 @@
 cask "florestan" do
-  version "0.0.2"
-  sha256 "b8ac6b2f14dfc841e3e4287403cd65a4bec3e1d15dfc010b60948e188f795f55"
+  version "0.0.3"
+  sha256 "7c8d022252c4f963d8b201c86a43249a1b66ce60f434135b0b73dc5827294ebe"
 
   url "https://github.com/ingridstevens/florestan/releases/download/v#{version}/Florestan.exe.dmg"
   name "Florestan.exe"
