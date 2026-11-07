@@ -100,6 +100,12 @@ Nothing else: Florestan carries its own copies of yt-dlp, ffmpeg and deno, and k
 2. Open it and drag **Florestan.exe** onto the **Applications** folder.
 3. Eject the disk image.
 
+Or, with [Homebrew](https://brew.sh):
+
+```sh
+brew install --cask ingridstevens/florestan/florestan
+```
+
 ### Opening it the first time
 
 Florestan isn't from the App Store and isn't notarized by Apple (that needs a paid developer account), so macOS
@@ -180,13 +186,13 @@ Their sections disappear from the sidebar, leaving more room for your library an
 
 Florestan tells you in its menu bar panel when a new version is out. Download the new **Florestan.exe.dmg** from
 the [latest release](https://github.com/ingridstevens/florestan/releases/latest) and drag it onto **Applications**,
-replacing the old copy. Your songs, history and settings stay. macOS may
+replacing the old copy (or run `brew upgrade --cask florestan`). Your songs, history and settings stay. macOS may
 block it once more with the "Open Anyway" step, and ask again for permission to control Music: click **OK**.
 
 ## Uninstalling
 
 1. Click **Quit** in Florestan's menu bar panel.
-2. Move **Florestan.exe** from Applications to the Trash.
+2. Move **Florestan.exe** from Applications to the Trash (or run `brew uninstall --cask florestan`).
 3. To remove its data too, delete `~/Library/Application Support/Florestan` (history, the record of imported songs,
    and its copies of yt-dlp, ffmpeg and deno) and `~/Music/Florestan` (downloads that never made it into Music).
 
@@ -237,6 +243,11 @@ Needs only the Xcode Command Line Tools (`xcode-select --install`):
 ```
 
 See [`CONTEXT.md`](CONTEXT.md) for the vocabulary used in the code.
+
+## Contributing
+
+Bug reports, ideas and pull requests are welcome. [`CONTRIBUTING.md`](CONTRIBUTING.md) explains how to report a
+problem, set up the project, and what makes a change easy to merge.
 
 ## Third-party software
 
