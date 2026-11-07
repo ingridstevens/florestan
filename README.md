@@ -18,7 +18,7 @@
 
 <p align="center">
   <a href="https://github.com/ingridstevens/florestan/releases/latest"><b>⬇ Download Florestan.exe for Mac</b></a>
-  &nbsp;·&nbsp; Version 0.0.2 &nbsp;·&nbsp; <a href="#install">How to install</a>
+  &nbsp;·&nbsp; Version 0.0.3 &nbsp;·&nbsp; <a href="#install">How to install</a>
 </p>
 
 <p align="center">
