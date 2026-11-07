@@ -10,6 +10,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/ingridstevens/florestan/actions/workflows/ci.yml"><img alt="Build and tests" src="https://github.com/ingridstevens/florestan/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://github.com/ingridstevens/florestan/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/ingridstevens/florestan?label=release&color=7A3FD6"></a>
   <img alt="macOS 26 or later" src="https://img.shields.io/badge/macOS-26%2B-111111?logo=apple&logoColor=white">
   <img alt="Apple Silicon" src="https://img.shields.io/badge/Apple%20Silicon-M1%2B-111111">

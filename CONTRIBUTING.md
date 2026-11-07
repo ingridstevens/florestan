@@ -76,6 +76,10 @@ cd florestan
 4. Keep the pull request to one change. Describe what it does and why, and add a before-and-after screenshot for
    anything visible.
 
+GitHub checks every pull request too: it builds the app, runs the tests, and checks the shell scripts and the
+Homebrew cask (see `.github/workflows/ci.yml`). It can't try anything that needs the Music app or YouTube, so step 2
+still matters.
+
 ## Releases
 
 Releases are made by the maintainer:

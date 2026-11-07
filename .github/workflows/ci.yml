@@ -1,0 +1,55 @@
+# Builds Florestan and runs its tests on every push to main and every pull request, and checks the shell scripts
+# and the Homebrew cask. The parts that drive the Music app or YouTube aren't run here; they're checked by hand
+# before a release (see CONTRIBUTING.md).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build and test
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Show the toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      - name: Build
+        run: swift build
+
+      - name: Test
+        # With full Xcode, swift-testing loads on its own; scripts/test.sh adds a workaround for Command Line Tools only.
+        run: swift test
+
+      - name: Check the shell scripts
+        run: |
+          for script in scripts/*.sh; do
+            zsh -n "$script"
+            echo "ok  $script"
+          done
+
+      - name: Check the Homebrew cask
+        # Homebrew checks casks inside a tap, so the cask goes into a temporary local one.
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: |
+          brew tap-new --no-git florestan-ci/local
+          tap="$(brew --repository florestan-ci/local)"
+          mkdir -p "$tap/Casks"
+          cp packaging/homebrew/florestan.rb "$tap/Casks/"
+          brew style --cask florestan-ci/local/florestan

@@ -1,0 +1,11 @@
+# Keeps the GitHub Actions used by .github/workflows up to date. Florestan has no Swift package dependencies, and the
+# tools it bundles (yt-dlp, ffmpeg, deno) are fetched at their latest version by scripts/fetch-tools.sh, so there's
+# nothing else for Dependabot to track.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: CI
